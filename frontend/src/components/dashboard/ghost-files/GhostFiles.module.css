@@ -1,0 +1,31 @@
+@reference "tailwindcss";
+
+.ghostContainer { @apply flex flex-col gap-8 pb-20 animate-[fadeIn_0.3s_ease-out]; }
+.headerArea { @apply flex justify-between items-end border-b pb-6; border-color: var(--border-style); }
+.title { @apply text-3xl md:text-4xl font-black uppercase tracking-tighter; color: var(--text-main); }
+.titleHighlight { @apply text-transparent bg-clip-text; background-image: linear-gradient(to right, var(--theme-primary), var(--theme-secondary)); }
+
+/* Storage Master Bar */
+.storageCard { @apply p-8 flex flex-col gap-4 relative overflow-hidden transition-all duration-300; background: var(--bg-panel); border: var(--border-style); border-radius: var(--radius-card); box-shadow: var(--panel-shadow); }
+.storageStats { @apply flex justify-between text-xs font-bold uppercase tracking-widest; color: var(--text-muted); }
+.storageBarBg { @apply w-full h-4 overflow-hidden shadow-inner; background: var(--bg-base); border-radius: var(--radius-btn); }
+.storageBarFill { @apply h-full relative overflow-hidden; background: linear-gradient(to right, var(--theme-primary), var(--theme-secondary)); }
+.storageBarFill::after { content: ''; @apply absolute inset-0 bg-white/20; animation: shimmer 2s infinite linear; }
+
+/* Index List */
+.indexGrid { @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6; }
+.indexCard { @apply p-6 flex flex-col gap-4 relative overflow-hidden transition-all duration-300; background: var(--bg-panel); border: var(--border-style); border-radius: var(--radius-card); }
+.indexCard:hover { border-color: var(--theme-primary); box-shadow: 0 0 30px var(--theme-primary); }
+.indexHeader { @apply flex justify-between items-start; }
+.indexTitle { @apply font-bold uppercase tracking-wider text-lg; color: var(--text-main); }
+.indexSize { @apply text-xs font-bold px-3 py-1 border; color: var(--theme-primary); border-color: var(--theme-primary); border-radius: var(--radius-btn); background: var(--theme-primary); opacity: 0.8; }
+.indexMeta { @apply flex items-center gap-4 text-xs; color: var(--text-muted); }
+
+.actionGroup { @apply flex gap-3 mt-auto pt-4 border-t; border-color: var(--border-style); }
+.actionBtn { @apply flex-1 py-2 font-bold transition-all uppercase tracking-widest text-[10px] flex justify-center items-center gap-2; border: 1px solid var(--theme-primary); color: var(--theme-primary); border-radius: var(--radius-btn); background: transparent; }
+.actionBtn:hover { background: var(--theme-primary); color: var(--bg-base); }
+.actionBtnDanger { @apply flex-1 py-2 font-bold transition-all uppercase tracking-widest text-[10px] flex justify-center items-center gap-2; border: 1px solid #ef4444; color: #ef4444; border-radius: var(--radius-btn); background: transparent; }
+.actionBtnDanger:hover { background: #ef4444; color: var(--text-main); box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }

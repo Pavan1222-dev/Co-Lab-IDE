@@ -1,0 +1,2 @@
+@reference "tailwindcss";
+.appContainer { @apply min-h-screen relative overflow-hidden; background-color: var(--bg-base); }

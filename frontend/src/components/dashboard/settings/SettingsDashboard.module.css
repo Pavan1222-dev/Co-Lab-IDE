@@ -1,0 +1,109 @@
+@reference "tailwindcss";
+
+.settingsContainer {
+  @apply flex flex-col gap-10 pb-20 animate-[fadeIn_0.3s_ease-out];
+}
+
+.sectionHeader {
+  @apply text-xl font-bold uppercase tracking-widest border-b pb-4 flex items-center gap-3; 
+  color: var(--text-main); 
+  border-color: var(--border-style); 
+}
+
+/* Themes Grid */
+.gridThemes { 
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6; 
+}
+
+.themeCard { 
+  @apply p-6 flex flex-col gap-4 relative overflow-hidden transition-all duration-300 cursor-pointer; 
+  background: var(--bg-panel-light); 
+  border: var(--border-style); 
+  border-radius: var(--radius-card); 
+  box-shadow: var(--panel-shadow); 
+}
+
+.themeCard:hover { 
+  border-color: var(--theme-primary); 
+  transform: translateY(-5px); 
+}
+
+.themeCardActive { 
+  border-color: var(--theme-primary); 
+  box-shadow: 0 0 30px var(--theme-primary-20); 
+  background: var(--theme-primary-20); 
+}
+
+/* Mini Mock-IDE Previews inside the Theme Cards */
+.themePreview { 
+  @apply w-full h-24 flex flex-col overflow-hidden; 
+  border: var(--border-style); 
+  border-radius: var(--radius-card); 
+}
+.previewHeader { 
+  @apply w-full h-6 flex items-center px-2 gap-1; 
+  border-bottom: var(--border-style); 
+}
+.previewBody { 
+  @apply flex-1 p-2 flex flex-col gap-2; 
+}
+.previewLine { 
+  @apply h-2 w-3/4 opacity-50; 
+  border-radius: var(--radius-btn); 
+}
+
+.themeTitle { 
+  @apply font-bold uppercase tracking-widest; 
+  color: var(--text-main); 
+}
+.themeDesc { 
+  @apply text-xs leading-relaxed; 
+  color: var(--text-muted); 
+}
+
+/* Color Swatches */
+.colorGrid { 
+  @apply flex flex-wrap gap-4; 
+}
+.colorSwatch { 
+  @apply w-12 h-12 cursor-pointer transition-all hover:scale-110 flex items-center justify-center border-2 border-transparent; 
+  border-radius: var(--radius-btn); 
+}
+.colorSwatchActive { 
+  @apply border-white scale-110 shadow-lg; 
+}
+
+/* Cursor Selection Cards */
+.cursorGrid { 
+  @apply grid grid-cols-2 md:grid-cols-4 gap-4; 
+}
+.cursorCard { 
+  @apply p-4 flex flex-col items-center gap-3 cursor-pointer transition-all; 
+  background: var(--bg-panel-light); 
+  border: var(--border-style); 
+  border-radius: var(--radius-card); 
+  color: var(--text-muted); 
+}
+.cursorCard:hover { 
+  border-color: var(--theme-primary); 
+}
+.cursorCardActive { 
+  border-color: var(--theme-primary); 
+  color: var(--theme-primary); 
+  box-shadow: inset 0 0 20px var(--theme-primary-20); 
+}
+.cursorIconWrapper { 
+  @apply w-12 h-12 flex items-center justify-center; 
+  background: var(--bg-base); 
+  border: var(--border-style); 
+  border-radius: var(--radius-btn); 
+}
+.cursorName { 
+  @apply text-xs font-bold uppercase tracking-widest; 
+}
+
+/* Smooth entry animation */
+@keyframes fadeIn { 
+  from { opacity: 0; transform: translateY(10px); } 
+  to { opacity: 1; transform: translateY(0); } 
+}

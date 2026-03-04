@@ -1,0 +1,121 @@
+@reference "tailwindcss";
+
+.mainContainer {
+  @apply min-h-screen w-full flex bg-[#09090b] font-mono relative overflow-hidden selection:bg-[var(--theme-primary-20)] selection:text-white;
+}
+
+/* Cursor overrides - applies pointer only to interactive elements */
+.mainContainer button, .mainContainer a {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24'%3E%3Cpath fill='%23f472b6' stroke='%23831843' stroke-width='1.5' d='M10 2v4h-2v4h-2v10h14v-10h-2v-4h-2V2z'/%3E%3C/svg%3E"), pointer !important;
+}
+
+.bgGrid {
+  @apply absolute inset-0 opacity-20 pointer-events-none z-0;
+  background-image: 
+    linear-gradient(to right, var(--theme-primary-20) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--theme-primary-20) 1px, transparent 1px);
+  background-size: 50px 50px;
+  mask-image: radial-gradient(circle at center, black, transparent 80%);
+}
+
+.ambientGlow {
+  @apply absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-[#c084fc]/5 rounded-[100%] blur-[120px] pointer-events-none z-0;
+}
+
+/* --- MAIN AREA & SCROLLING --- */
+.mainArea {
+  @apply flex-1 flex flex-col h-screen overflow-hidden relative z-10 ml-16 md:ml-20;
+}
+
+.contentScroll {
+  @apply flex-1 overflow-y-auto px-6 lg:px-12 pt-8 relative z-10;
+}
+
+.contentScroll::-webkit-scrollbar { width: 6px; }
+.contentScroll::-webkit-scrollbar-track { background: transparent; }
+.contentScroll::-webkit-scrollbar-thumb { background: var(--theme-primary-20); border-radius: 10px; }
+.contentScroll::-webkit-scrollbar-thumb:hover { background: var(--theme-primary); }
+
+/* --- DASHBOARD HEADER --- */
+.header {
+  @apply h-20 w-full border-b border-zinc-800/60 bg-black/40 flex items-center justify-between px-6 lg:px-12 shrink-0 relative z-20;
+  backdrop-filter: blur(12px);
+}
+
+.searchBox {
+  @apply flex items-center gap-3 bg-zinc-900/50 border border-zinc-800/80 rounded-xl px-4 py-2.5 w-full max-w-md transition-colors focus-within:border-[var(--theme-primary)] focus-within:bg-black;
+}
+
+.searchInput {
+  @apply bg-transparent outline-none text-sm text-white placeholder-zinc-500 w-full font-mono tracking-widest uppercase text-[10px];
+}
+
+.headerActions {
+  @apply flex items-center gap-3;
+}
+
+.iconBtn {
+  @apply relative text-zinc-500 hover:text-[var(--theme-primary)] transition-colors p-2 rounded-xl hover:bg-zinc-900/80 border border-transparent hover:border-zinc-800;
+}
+
+.notificationDot {
+  @apply absolute top-1.5 right-2 w-2 h-2 rounded-full bg-[var(--theme-secondary)] border-2 border-black animate-pulse shadow-[0_0_8px_var(--theme-secondary)];
+}
+
+/* --- COMPONENTS --- */
+.themedCard {
+  @apply p-8 border bg-black/40 backdrop-blur-xl transition-all duration-300 flex flex-col;
+  border-radius: var(--radius-card);
+  border-color: var(--border-style);
+  box-shadow: var(--panel-shadow);
+}
+
+.actionBtnSolid {
+  @apply w-full py-4 text-black font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-transform hover:scale-[1.02];
+  background: linear-gradient(to right, var(--theme-primary), var(--theme-secondary));
+  border-radius: var(--radius-btn);
+  box-shadow: 0 0 20px var(--theme-primary-20);
+}
+
+/* Global IDE Launch Button */
+.globalIdeBtn {
+  @apply fixed bottom-8 right-8 z-50 py-3 px-6 text-black font-black uppercase tracking-widest flex items-center gap-3 transition-all duration-300 hover:-translate-y-1 hover:scale-105 shadow-[0_10px_30px_rgba(0,0,0,0.8)];
+  background: linear-gradient(to right, var(--theme-primary), var(--theme-secondary));
+  border-radius: var(--radius-btn);
+}
+.globalIdeBtn:hover {
+  box-shadow: 0 0 40px var(--theme-primary-40);
+}
+
+/* Assistive HUD */
+.assistiveWrapper {
+  @apply fixed bottom-8 right-56 z-50 flex items-end gap-4;
+}
+
+.assistiveMainBtn {
+  @apply w-12 h-12 rounded-full border border-zinc-800 bg-black/80 backdrop-blur-md flex items-center justify-center text-zinc-400 hover:text-[var(--theme-primary)] hover:border-[var(--theme-primary)] transition-all cursor-pointer shadow-xl;
+}
+
+.assistiveMenu {
+  @apply flex flex-col gap-2 mb-2;
+}
+
+.menuSlot {
+  @apply w-12 h-12 rounded-2xl border border-zinc-800 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center gap-1 text-zinc-500 hover:border-[var(--theme-primary)] hover:text-[var(--theme-primary)] cursor-pointer transition-all;
+}
+.menuSlotActive {
+  @apply border-[var(--theme-primary)] text-[var(--theme-primary)] shadow-[0_0_15px_var(--theme-primary-20)];
+}
+
+.telemetryPanel {
+  @apply absolute bottom-16 right-0 w-64 bg-black/90 backdrop-blur-xl border border-[var(--theme-primary)]/30 rounded-2xl p-4 shadow-[0_0_30px_var(--theme-primary-20)];
+}
+
+.teleBarBg {
+  @apply w-full h-1.5 bg-zinc-900 rounded-full overflow-hidden;
+}
+
+.teleBarFill {
+  @apply h-full transition-all duration-500;
+  background: linear-gradient(to right, var(--theme-primary), var(--theme-secondary));
+}

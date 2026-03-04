@@ -1,0 +1,105 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap');
+
+:root {
+  --theme-primary: #c084fc;
+  --theme-secondary: #f472b6;
+  --theme-primary-20: rgba(192, 132, 252, 0.2); 
+  
+  --bg-base: #000000;
+  --bg-panel-heavy: rgba(0, 0, 0, 0.6);
+  --bg-panel-light: rgba(0, 0, 0, 0.4);
+  --text-main: #ffffff;
+  --text-muted: #a1a1aa;
+  --border-style: 1px solid #27272a; 
+  --radius-card: 24px;
+  --radius-btn: 9999px;
+  --panel-shadow: none;
+  
+  --font-main: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --text-transform: none;
+  --grid-opacity: 0.1;
+  --glow-opacity: 0.1;
+
+  --cursor-default: default;
+  --cursor-pointer: pointer;
+  --cursor-text: text;
+  --cursor-grab: grab;
+}
+
+body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--bg-base);
+  color: var(--text-main);
+  font-family: var(--font-main);
+  text-transform: var(--text-transform);
+  overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* 1. Base Default */
+body, div, span, main, section { 
+  cursor: var(--cursor-default) !important; 
+}
+
+/* 2. Interactive Pointers */
+button, a, input[type="checkbox"], input[type="radio"], select, .cursor-pointer, [role="button"] { 
+  cursor: var(--cursor-pointer) !important; 
+}
+
+/* 3. Text (I-Beam) */
+input[type="text"], input[type="email"], input[type="password"], textarea, p, h1, h2, h3, h4, h5, h6 { 
+  cursor: var(--cursor-text) !important; 
+}
+
+/* 4. Draggable Layouts */
+.grab, .resize-handle { 
+  cursor: var(--cursor-grab) !important; 
+}
+.grabbing { 
+  cursor: grabbing !important; 
+}
+
+/* YJS REMOTE CURSOR MECHANICS */
+.yRemoteSelection {
+  background-color: var(--yjs-color, rgba(192, 132, 252, 0.2));
+  opacity: 0.5;
+}
+
+.yRemoteSelectionHead {
+  position: absolute;
+  border-left: 2px solid var(--yjs-color, #c084fc);
+  border-top: 2px solid var(--yjs-color, #c084fc);
+  border-bottom: 2px solid var(--yjs-color, #c084fc);
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.yRemoteSelectionHead::after {
+  position: absolute;
+  content: attr(user-name);
+  top: -18px;
+  left: -2px;
+  background-color: var(--yjs-color, #c084fc);
+  color: #000;
+  font-family: var(--font-main);
+  font-size: 9px;
+  font-weight: 900;
+  padding: 2px 6px;
+  border-radius: 4px 4px 4px 0;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 50;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+}
+
+.terminal-wrapper .xterm-viewport,
+.terminal-wrapper .xterm-screen,
+.terminal-wrapper .xterm-text-layer {
+  cursor: var(--cursor-text) !important;
+}

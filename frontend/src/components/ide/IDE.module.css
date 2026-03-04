@@ -1,0 +1,341 @@
+@reference "tailwindcss";
+
+.ideContainer {
+  @apply h-screen w-screen flex flex-col overflow-hidden relative;
+  background-color: var(--bg-base);
+  color: var(--text-main);
+  font-family: var(--font-main);
+}
+
+/* === CUSTOM IDE SCROLLBARS === */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* === TOP OMNIBAR === */
+.topBar {
+  @apply h-12 flex items-center justify-between px-4 shrink-0 transition-colors relative z-30 shadow-md;
+  background-color: var(--bg-panel-heavy);
+  border-bottom: var(--border-style);
+}
+.omnibar {
+  @apply flex items-center gap-2 px-4 py-1.5 rounded-md w-96 border transition-all;
+  background-color: var(--bg-base);
+  border-color: var(--theme-primary-20);
+}
+.omnibar:focus-within {
+  border-color: var(--theme-primary);
+  box-shadow: 0 0 15px var(--theme-primary-20);
+}
+.omnibarInput {
+  @apply bg-transparent outline-none w-full text-xs text-center transition-colors;
+  color: var(--text-main);
+}
+
+/* === TOP MENU BAR === */
+.menuBar {
+  @apply hidden md:flex items-center gap-1 text-[13px] ml-4;
+  color: var(--text-muted);
+}
+.menuItem {
+  @apply px-2 py-1 rounded cursor-pointer transition-colors;
+}
+.menuItem:hover {
+  background-color: var(--bg-panel-light);
+  color: var(--text-main);
+}
+
+/* === MAIN WORKSPACE GRID === */
+.mainGrid {
+  @apply flex-1 flex overflow-hidden relative z-10;
+}
+
+/* ACTIVITY BAR (Far Left Icons) */
+.activityBar {
+  @apply w-14 flex flex-col items-center py-4 gap-6 shrink-0 transition-colors relative z-20 shadow-xl;
+  background-color: var(--bg-panel-heavy);
+  border-right: var(--border-style);
+}
+.activityBtn {
+  @apply p-2 rounded-xl cursor-pointer transition-all relative bg-transparent border-none flex items-center justify-center;
+  color: var(--text-muted);
+}
+.activityBtn:hover { 
+  color: var(--text-main); 
+  transform: scale(1.05);
+}
+.activityBtnActive {
+  color: var(--theme-primary);
+  background-color: var(--theme-primary-20);
+  box-shadow: inset 2px 0 0 var(--theme-primary);
+}
+.activityBadge {
+  @apply absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black text-black shadow-lg shadow-black;
+  background-color: var(--theme-primary);
+}
+.avatarBtn {
+  @apply w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-black cursor-pointer hover:scale-105 transition-transform border border-black shadow-[0_0_10px_rgba(192,132,252,0.3)];
+  background: linear-gradient(to bottom right, var(--theme-primary), var(--theme-secondary));
+}
+
+/* SIDEBARS (Handled by Framer Motion in JS now, but keeping base styles) */
+.sideBar {
+  @apply flex flex-col w-full h-full transition-colors;
+  background-color: var(--bg-panel-light);
+}
+
+.sideBarHeader {
+  @apply h-10 flex items-center justify-between px-4 text-xs font-bold uppercase tracking-widest border-b shrink-0;
+  color: var(--text-muted);
+  border-color: var(--border-style);
+}
+.fileTree {
+  @apply flex-1 overflow-y-auto py-2;
+}
+.fileItem {
+  @apply flex items-center gap-2 px-4 py-1 text-sm cursor-pointer transition-colors;
+  color: var(--text-muted);
+}
+.fileItem:hover { 
+  color: var(--text-main); 
+  background-color: var(--theme-primary-20); 
+}
+.fileItemActive { 
+  color: var(--theme-primary); 
+  background-color: var(--theme-primary-20); 
+  border-left: 2px solid var(--theme-primary);
+}
+
+/* EDITOR AREA */
+.editorContainer {
+  @apply flex-1 flex overflow-hidden relative shadow-inner;
+}
+.editorZone {
+  @apply flex-1 flex flex-col overflow-hidden relative;
+  background-color: var(--bg-base);
+}
+.tabsContainer {
+  @apply h-10 flex border-b overflow-x-auto shrink-0 transition-colors z-10;
+  background-color: var(--bg-panel-heavy);
+  border-color: var(--border-style);
+}
+.tab {
+  @apply flex items-center gap-2 px-4 border-r text-xs cursor-pointer transition-colors min-w-[120px] max-w-[200px];
+  border-color: var(--border-style);
+  color: var(--text-muted);
+}
+.tab:hover {
+  background-color: var(--bg-panel-light);
+}
+.tabActive {
+  background-color: var(--bg-base);
+  color: var(--theme-primary);
+  border-top: 2px solid var(--theme-primary);
+}
+.codeCanvas {
+  @apply flex-1 pt-2 font-mono text-sm leading-relaxed;
+}
+
+/* MINIMAP */
+.minimap {
+  @apply w-24 h-full overflow-hidden border-l relative select-none shrink-0;
+  background-color: var(--bg-base);
+  border-color: var(--border-style);
+}
+.minimapContent {
+  @apply p-2 font-mono text-[3px] leading-tight opacity-50 pointer-events-none;
+  color: var(--text-muted);
+}
+.minimapSlider {
+  @apply absolute left-0 w-full bg-white/10 transition-all hover:bg-white/20 cursor-grab;
+  height: 30%; top: 0;
+}
+
+/* BOTTOM TERMINAL PANEL */
+.bottomPanel {
+  @apply h-full w-full flex flex-col shrink-0 border-t transition-colors relative z-20;
+  background-color: var(--bg-panel-heavy);
+  border-color: var(--border-style);
+}
+
+/* STATUS BAR */
+.statusBar {
+  @apply h-6 flex items-center justify-between px-4 text-[10px] font-bold uppercase tracking-widest shrink-0 relative z-40;
+  background: linear-gradient(to right, var(--theme-primary), var(--theme-secondary));
+  color: black;
+}
+.statusBarItem {
+  @apply flex items-center gap-1.5 px-2 h-full cursor-pointer transition-colors hover:bg-white/30;
+}
+
+/* === CONTEXT MENUS & POPUPS === */
+.contextMenu {
+  @apply absolute z-50 flex flex-col py-1 rounded-lg shadow-[0_10px_40px_rgba(0,0,0,0.8)] border min-w-[280px] backdrop-blur-xl animate-[fadeIn_0.15s_ease-out];
+  background-color: rgba(24, 24, 27, 0.95); /* zinc-900 heavily opaque */
+  border-color: var(--border-style);
+  color: var(--text-main);
+  font-size: 13px;
+}
+.contextMenuBottomLeft { @apply bottom-12 left-14; }
+.contextMenuTopRight { @apply top-12 right-4; }
+
+.contextMenuItem {
+  @apply flex items-center justify-between px-4 py-1.5 cursor-pointer transition-colors;
+}
+.contextMenuItem:hover {
+  background-color: var(--theme-primary);
+  color: black;
+}
+.contextMenuItem:hover span {
+  color: black !important;
+}
+.contextMenuSeparator {
+  @apply my-1 border-b opacity-50;
+  border-color: var(--border-style);
+}
+
+@keyframes fadeIn { 
+  from { opacity: 0; transform: scale(0.97) translateY(5px); } 
+  to { opacity: 1; transform: scale(1) translateY(0); } 
+}
+
+/* GLOBAL MOUSE CURSOR FIXES */
+button, select, input[type="button"], .cursor-pointer {
+  cursor: pointer !important;
+}
+.terminal-wrapper, .terminal-wrapper * {
+  cursor: text !important;
+}
+
+/* ==========================================
+   FLOATING ACTION BUTTON & MODALS
+========================================== */
+.floatingMenuContainer {
+  position: absolute;
+  bottom: 40px;
+  right: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  z-index: 9990; /* High enough to be over everything, below modal */
+}
+
+.floatingMenuOptions {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+  background-color: rgba(24, 24, 27, 0.95); /* zinc-900 */
+  border: 1px solid var(--border-style);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  backdrop-filter: blur(10px);
+}
+
+.floatingMenuOptions button {
+  background: none;
+  border: none;
+  padding: 12px 16px;
+  color: var(--text-main);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  width: 200px;
+  transition: all 0.2s;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.floatingMenuOptions button:last-child {
+  border-bottom: none;
+}
+
+.floatingMenuOptions button:hover {
+  background-color: var(--theme-primary-20);
+  color: var(--theme-primary);
+}
+
+.floatingBtn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--theme-primary), var(--theme-secondary));
+  border: none;
+  color: black;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 4px 20px rgba(192, 132, 252, 0.4);
+  cursor: pointer;
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
+}
+
+.floatingBtn:hover {
+  transform: scale(1.05);
+}
+
+.floatingBtnOpen {
+  background: var(--bg-panel-heavy);
+  color: var(--text-main);
+  border: 1px solid var(--border-style);
+  box-shadow: none;
+  transform: rotate(90deg);
+}
+.floatingBtnOpen:hover {
+  transform: rotate(90deg) scale(1.05);
+}
+
+.notificationBadge {
+  background-color: #ef4444; /* Red */
+  color: white;
+  font-size: 10px;
+  font-weight: 900;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+
+.floatingBadge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background-color: #ef4444;
+  color: white;
+  font-size: 10px;
+  font-weight: 900;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  border: 2px solid var(--bg-base);
+  animation: pulse 2s infinite;
+}
+
+/* Modal Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(255,255,255,0.1);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255,255,255,0.2);
+}

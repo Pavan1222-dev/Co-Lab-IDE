@@ -1,0 +1,11 @@
+/* Fix Native Terminal Cursors */
+.terminal-wrapper .xterm-viewport,
+.terminal-wrapper .xterm-screen,
+.terminal-wrapper .xterm-text-layer {
+  cursor: text !important;
+}
+
+/* Ensure UI elements use the pointer hand */
+button, select, .cursor-pointer {
+  cursor: pointer !important;
+}

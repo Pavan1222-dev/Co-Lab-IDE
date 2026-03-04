@@ -1,0 +1,87 @@
+.modal-wrapper {
+  background: #1e1e1e; /* Dark theme background */
+  border: 1px solid #333;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.modal-box {
+  display: flex;
+  flex-direction: column;
+  background: inherit;
+  height: 100%;
+  position: relative;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 15px;
+  background: #252526;
+  color: #ddd;
+  cursor: move; /* Indicates it's draggable */
+  border-bottom: 1px solid #333;
+  user-select: none;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s;
+}
+
+.close-btn:hover {
+  color: #fff;
+}
+
+.modal-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  color: #ccc;
+  /* Custom scrollbar for dark theme */
+  scrollbar-width: thin;
+  scrollbar-color: #444 #1e1e1e;
+}
+
+.modal-content::-webkit-scrollbar {
+  width: 8px;
+}
+.modal-content::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+.modal-content::-webkit-scrollbar-thumb {
+  background-color: #444;
+  border-radius: 4px;
+}
+
+/* Customizing the resizable handle */
+.react-resizable-handle-se {
+    width: 15px;
+    height: 15px;
+    bottom: 0;
+    right: 0;
+    background: none;
+}
+.react-resizable-handle-se::after {
+    content: '';
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid #555;
+    border-bottom: 2px solid #555;
+}

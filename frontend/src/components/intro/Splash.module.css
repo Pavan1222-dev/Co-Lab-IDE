@@ -1,0 +1,20 @@
+@reference "tailwindcss";
+
+.introOverlay {
+  @apply fixed inset-0 z-50 bg-[#000000] font-mono overflow-hidden flex items-center justify-center;
+}
+.splineContainer {
+  @apply w-full h-full opacity-0 flex items-center justify-center;
+}
+.loaderWrapper {
+  @apply absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-10;
+}
+.progressBar {
+  @apply w-48 h-1 bg-gray-800 rounded-full overflow-hidden;
+}
+.progressFill {
+  @apply h-full bg-[#3B82F6] animate-pulse;
+}
+.loadingText {
+  @apply mt-4 text-[10px] text-[#3B82F6] tracking-[0.4em] uppercase font-bold;
+}

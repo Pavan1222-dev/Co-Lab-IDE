@@ -1,0 +1,30 @@
+@reference "tailwindcss";
+
+.networkContainer { @apply flex flex-col gap-8 pb-20 animate-[fadeIn_0.3s_ease-out]; }
+.title { @apply text-3xl md:text-4xl font-black uppercase tracking-tighter; color: var(--text-main); }
+.titleHighlight { @apply text-transparent bg-clip-text; background-image: linear-gradient(to right, var(--theme-primary), var(--theme-secondary)); }
+
+/* Radar / Topology Box */
+.topologyCard { @apply h-64 flex items-center justify-center relative overflow-hidden transition-all duration-300; background: var(--bg-panel); border: var(--border-style); border-radius: var(--radius-card); box-shadow: inset 0 0 50px rgba(0,0,0,0.8); }
+.radarRings { @apply absolute inset-0 flex items-center justify-center pointer-events-none; }
+.ring { @apply absolute rounded-full border border-dashed opacity-20; border-color: var(--theme-primary); }
+
+.centralNode { @apply w-12 h-12 rounded-full flex items-center justify-center z-10 shadow-[0_0_30px_var(--theme-primary)]; background: linear-gradient(135deg, var(--theme-primary), var(--theme-secondary)); color: black; }
+.peerNode { @apply absolute w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-[0_0_15px_var(--theme-secondary)]; background: var(--bg-base); border: 2px solid var(--theme-secondary); color: var(--theme-secondary); }
+
+/* Peer Table */
+.tableContainer { @apply w-full overflow-hidden; background: var(--bg-panel); border: var(--border-style); border-radius: var(--radius-card); }
+.table { @apply w-full text-left border-collapse; }
+.th { @apply p-4 font-bold uppercase tracking-widest text-[10px] border-b bg-black/20; color: var(--text-muted); border-color: var(--border-style); }
+.td { @apply p-4 text-sm border-b; color: var(--text-main); border-color: var(--border-style); }
+.tr { @apply transition-colors hover:bg-white/5; }
+.tr:last-child .td { @apply border-0; }
+
+.statusBadge { @apply px-2 py-1 rounded-[var(--radius-btn)] text-[10px] font-bold uppercase tracking-widest border; }
+.statusOnline { @apply bg-[#00ff41]/10 text-[#00ff41] border-[#00ff41]/50; }
+.statusSync { @apply bg-yellow-500/10 text-yellow-500 border-yellow-500/50; }
+
+.pingBadge { @apply flex items-center gap-1 text-xs font-mono; color: var(--text-muted); }
+.pingDot { @apply w-2 h-2 rounded-full bg-[#00ff41] shadow-[0_0_5px_#00ff41]; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

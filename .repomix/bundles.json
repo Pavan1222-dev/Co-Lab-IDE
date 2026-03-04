@@ -1,0 +1,20 @@
+{
+  "bundles": {
+    "dash-843": {
+      "name": "dash",
+      "created": "2026-03-04T08:09:14.477Z",
+      "lastUsed": "2026-03-04T08:09:14.477Z",
+      "tags": [],
+      "files": [
+        "frontend/src/components/dashboard"
+      ]
+    },
+    "dashboard-177": {
+      "name": "dashboard",
+      "created": "2026-03-04T08:12:49.982Z",
+      "lastUsed": "2026-03-04T08:12:49.982Z",
+      "tags": [],
+      "files": []
+    }
+  }
+}
