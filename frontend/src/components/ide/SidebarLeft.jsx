@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronDown, ChevronRight, FolderOpen, Loader2, Globe, 
   FilePlus, FolderPlus, RefreshCw, ListCollapse, Save, XSquare, 
-  Folder, MoreHorizontal, X
+  Folder, MoreHorizontal, X, Trash2, Edit2
 } from 'lucide-react';
 
 import { 
@@ -17,7 +18,7 @@ import {
   VscFileCode, VscFile 
 } from "react-icons/vsc";
 
-import { readDir, writeTextFile, mkdir } from '@tauri-apps/plugin-fs';
+import { readDir, writeTextFile, mkdir, remove, rename } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
 import * as Y from 'yjs';
 import { WebrtcProvider } from 'y-webrtc';
@@ -86,7 +87,8 @@ const FileSystemNode = ({
   item, activeFile, setActiveFile, depth = 0, 
   selectedNode, setSelectedNode,
   creatingItem, setCreatingItem, newItemName, setNewItemName, handleCreateSubmit, collapseTrigger,
-  projectRoot, unsavedFiles 
+  projectRoot, unsavedFiles,
+  onContextMenu, renamingItem, handleRenameSubmit 
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [prevCollapse, setPrevCollapse] = useState(collapseTrigger);
@@ -106,18 +108,19 @@ const FileSystemNode = ({
     e.stopPropagation();
     setIsOpen(!isOpen);
     const localPath = await join(projectRoot, item.relativePath);
-    setSelectedNode({ path: localPath, isDirectory: true });
+    setSelectedNode({ path: localPath, isDirectory: true, relativePath: item.relativePath });
   };
 
   const handleFileClick = async (e) => {
     e.stopPropagation();
     const localPath = await join(projectRoot, item.relativePath);
     setActiveFile({ name: item.name, path: localPath, relativePath: item.relativePath });
-    setSelectedNode({ path: localPath, isDirectory: false });
+    setSelectedNode({ path: localPath, isDirectory: false, relativePath: item.relativePath });
   };
 
   const isSelected = selectedNode?.path && selectedNode.path.endsWith(item.relativePath.replace(/\//g, osSeparator));
   const isUnsaved = unsavedFiles.includes(item.relativePath);
+  const isRenaming = renamingItem?.path === item.path;
   const paddingLeft = `${(depth * 10) + 8}px`;
 
   if (item.isDirectory) {
@@ -129,10 +132,18 @@ const FileSystemNode = ({
           }`}
           style={{ paddingLeft }}
           onClick={handleFolderClick}
+          onContextMenu={(e) => onContextMenu(e, { ...item, path: item.path || 'fallback_path' })}
         >
           {isOpen ? <ChevronDown size={14} className="text-zinc-500 shrink-0" /> : <ChevronRight size={14} className="text-zinc-500 shrink-0" />}
           <Folder size={14} className={`shrink-0 ${isOpen ? "text-[#c084fc] fill-[#c084fc]/20" : "text-zinc-400 fill-zinc-400/20"}`} />
-          <span className="truncate leading-tight">{item.name}</span>
+          
+          {isRenaming ? (
+             <form onSubmit={handleRenameSubmit} className="flex-1 w-full ml-1" onClick={e=>e.stopPropagation()}>
+               <input autoFocus type="text" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} onBlur={handleRenameSubmit} className="bg-black border border-[#c084fc] outline-none text-[12px] text-white w-[90%] font-mono py-px px-1 rounded-sm" />
+             </form>
+          ) : (
+             <span className="truncate leading-tight">{item.name}</span>
+          )}
         </div>
         
         {isOpen && (
@@ -154,6 +165,7 @@ const FileSystemNode = ({
                 creatingItem={creatingItem} setCreatingItem={setCreatingItem}
                 newItemName={newItemName} setNewItemName={setNewItemName} handleCreateSubmit={handleCreateSubmit}
                 collapseTrigger={collapseTrigger} projectRoot={projectRoot} unsavedFiles={unsavedFiles}
+                onContextMenu={onContextMenu} renamingItem={renamingItem} handleRenameSubmit={handleRenameSubmit}
               />
             ))}
           </div>
@@ -170,10 +182,19 @@ const FileSystemNode = ({
       }`} 
       style={{ paddingLeft: `${(depth * 10) + 22}px` }}
       onClick={handleFileClick}
+      onContextMenu={(e) => onContextMenu(e, { ...item, path: item.path || 'fallback_path' })}
     >
       <span className="shrink-0">{getFileIcon(item.name)}</span>
-      <span className={`truncate leading-tight ${isUnsaved ? 'text-white italic' : ''}`}>{item.name}</span>
-      {isUnsaved && <div className="w-1.5 h-1.5 rounded-full bg-white ml-auto mr-4 shrink-0" />}
+      
+      {isRenaming ? (
+         <form onSubmit={handleRenameSubmit} className="flex-1 w-full" onClick={e=>e.stopPropagation()}>
+           <input autoFocus type="text" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} onBlur={handleRenameSubmit} className="bg-black border border-[#c084fc] outline-none text-[12px] text-white w-[90%] font-mono py-px px-1 rounded-sm" />
+         </form>
+      ) : (
+         <span className={`truncate leading-tight ${isUnsaved ? 'text-white italic' : ''}`}>{item.name}</span>
+      )}
+      
+      {isUnsaved && !isRenaming && <div className="w-1.5 h-1.5 rounded-full bg-white ml-auto mr-4 shrink-0" />}
     </div>
   );
 };
@@ -203,11 +224,18 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
 
   const [selectedNode, setSelectedNode] = useState(null); 
   const [creatingItem, setCreatingItem] = useState(null); 
+  
+  // Renaming State
+  const [renamingItem, setRenamingItem] = useState(null);
   const [newItemName, setNewItemName] = useState('');
+
+  // CONTEXT MENU STATE
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, targetItem: null });
 
   const yProvider = useRef(null);
   const yTreeMap = useRef(null);
   const ySyncMap = useRef(null);
+  const yActionMap = useRef(null); 
 
   const scanAndBroadcastDirectory = useCallback(async (rootPath) => {
     if (!rootPath || !isTauri) return;
@@ -215,7 +243,7 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
     const broadcastProgress = (file, pct) => {
       const status = { active: true, currentFile: file, percent: pct };
       setSyncStatus(status);
-      if (ySyncMap.current) ySyncMap.current.set('status', status); 
+      if (isWorkspaceHost && ySyncMap.current) ySyncMap.current.set('status', status); 
     };
 
     broadcastProgress("Scanning...", 5);
@@ -236,9 +264,9 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
           
           if (entry.isDirectory) {
             const children = await readDirRecursive(entryPath, relPath, currentDepth + 1);
-            folderStructure.push({ name: entry.name, relativePath: relPath, isDirectory: true, children });
+            folderStructure.push({ name: entry.name, relativePath: relPath, isDirectory: true, children, path: entryPath });
           } else {
-            folderStructure.push({ name: entry.name, relativePath: relPath, isDirectory: false });
+            folderStructure.push({ name: entry.name, relativePath: relPath, isDirectory: false, path: entryPath });
           }
         }
         
@@ -258,12 +286,12 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
     setTimeout(() => {
       const doneStatus = { active: false, currentFile: '', percent: 0 };
       setSyncStatus(doneStatus);
-      if (ySyncMap.current) ySyncMap.current.set('status', doneStatus);
+      if (isWorkspaceHost && ySyncMap.current) ySyncMap.current.set('status', doneStatus);
     }, 1000);
 
     setFileTree(completeTree);
-    if (yTreeMap.current) yTreeMap.current.set('treeData', completeTree);
-  }, []);
+    if (isWorkspaceHost && yTreeMap.current) yTreeMap.current.set('treeData', completeTree);
+  }, [isWorkspaceHost]);
 
   useEffect(() => {
     const handleNewFile = () => {
@@ -290,6 +318,16 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
   }, [projectRoot]);
 
   useEffect(() => {
+    const doRescan = () => {
+      if (isWorkspaceHost && projectRoot) {
+        scanAndBroadcastDirectory(projectRoot);
+      }
+    };
+    window.addEventListener('p2p-force-rescan', doRescan);
+    return () => window.removeEventListener('p2p-force-rescan', doRescan);
+  }, [isWorkspaceHost, projectRoot, scanAndBroadcastDirectory]);
+
+  useEffect(() => {
     const safeRoom = roomHash || 'local-offline-room';
     const treeRoomName = `${safeRoom}-ghost-tree`;
     
@@ -297,6 +335,7 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
     yProvider.current = new WebrtcProvider(treeRoomName, ydoc, { signaling: SIGNALING_SERVERS });
     yTreeMap.current = ydoc.getMap('projectTree');
     ySyncMap.current = ydoc.getMap('syncProgress');
+    yActionMap.current = ydoc.getMap('actions'); 
 
     yTreeMap.current.observe(() => {
       if (yTreeMap.current.has('treeData')) setFileTree(yTreeMap.current.get('treeData'));
@@ -304,6 +343,12 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
 
     ySyncMap.current.observe(() => {
       if (ySyncMap.current.has('status')) setSyncStatus(ySyncMap.current.get('status'));
+    });
+
+    yActionMap.current.observe((event) => {
+       if (event.keysChanged.has('forceRescan')) {
+           window.dispatchEvent(new Event('p2p-force-rescan'));
+       }
     });
 
     return () => {
@@ -321,8 +366,84 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
     }
   }, [projectRoot, isWorkspaceHost, scanAndBroadcastDirectory]);
 
-  const handleStartCreate = (type, e) => {
+  // --- ULTIMATE SYNC AND CONTEXT MENU ACTIONS ---
+
+  const triggerGlobalSync = () => {
+    if (isWorkspaceHost) scanAndBroadcastDirectory(projectRoot); 
+    else if (yActionMap.current) yActionMap.current.set('forceRescan', Date.now());
+  };
+
+  const closeMenu = () => {
+    setContextMenu({ ...contextMenu, visible: false });
+  };
+
+  const handleContextMenu = async (e, item) => {
+    e.preventDefault();
     e.stopPropagation();
+    
+    const fullPath = await join(projectRoot, item.relativePath);
+    item.path = fullPath; 
+
+    let finalY = e.clientY;
+    if (window.innerHeight - e.clientY < 350) finalY = window.innerHeight - 350;
+
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: finalY,
+      targetItem: item
+    });
+    setSelectedNode({ path: fullPath, isDirectory: item.isDirectory, relativePath: item.relativePath });
+  };
+
+  const executeDelete = async () => {
+    const target = contextMenu.targetItem;
+    closeMenu();
+    try {
+      await remove(target.path, { recursive: true });
+      toast.success(`Deleted: ${target.name}`);
+      if (activeFile?.path === target.path) setActiveFile({ name: '', path: null, relativePath: '' });
+      triggerGlobalSync();
+    } catch {
+      toast.error(`Delete failed. Permission denied.`);
+    }
+  };
+
+  const triggerRenameMode = () => {
+    setRenamingItem(contextMenu.targetItem);
+    setNewItemName(contextMenu.targetItem.name);
+    closeMenu();
+  };
+
+  const handleRenameSubmit = async (e) => {
+    e?.preventDefault();
+    if (!renamingItem || !newItemName.trim() || newItemName === renamingItem.name) {
+      setRenamingItem(null);
+      return;
+    }
+    
+    try {
+      const parentPath = renamingItem.path.substring(0, renamingItem.path.lastIndexOf(osSeparator));
+      const newFullPath = await join(parentPath, newItemName);
+      
+      await rename(renamingItem.path, newFullPath);
+      toast.success(`Renamed to ${newItemName}`);
+      setRenamingItem(null);
+      triggerGlobalSync();
+    } catch {
+      toast.error(`Rename failed.`);
+      setRenamingItem(null);
+    }
+  };
+
+  const copyToClipboard = (text, typeLabel) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${typeLabel} copied!`);
+    closeMenu();
+  };
+
+  const handleStartCreate = (type, e) => {
+    e?.stopPropagation();
     if (!projectRoot) return toast.error("No project mounted.");
 
     let targetPath = projectRoot; 
@@ -337,10 +458,11 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
     setCreatingItem({ type, targetPath });
     setNewItemName('');
     setSections(prev => ({...prev, folders: true}));
+    closeMenu();
   };
 
   const handleCreateSubmit = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     if (!newItemName.trim() || !creatingItem) return setCreatingItem(null);
 
     try {
@@ -354,7 +476,7 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
       }
       setCreatingItem(null);
       setNewItemName('');
-      scanAndBroadcastDirectory(projectRoot); 
+      triggerGlobalSync();
     } catch {
       toast.error(`Creation failed. Check permissions.`);
     }
@@ -363,8 +485,74 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
   const projectName = projectRoot ? projectRoot.split(osSeparator).pop().toUpperCase() : 'NO FOLDER MOUNTED';
 
   return (
-    <div className={`${styles.sideBar} flex flex-col relative bg-[#09090b] w-64 shrink-0 border-r border-zinc-800`} onClick={() => { setSelectedNode(null); setCreatingItem(null); }}>
+    <div className={`${styles.sideBar} flex flex-col relative bg-[#09090b] w-64 shrink-0 border-r border-zinc-800`} onClick={() => { setSelectedNode(null); setCreatingItem(null); setRenamingItem(null); closeMenu(); }}>
       
+      <AnimatePresence>
+        {contextMenu.visible && contextMenu.targetItem && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.1 }}
+            className="fixed bg-zinc-950 border border-zinc-700 shadow-[0_10px_30px_rgba(0,0,0,0.8)] py-1.5 rounded-lg z-9999 text-[11px] text-zinc-300 min-w-55 font-sans flex flex-col select-none"
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            
+            {contextMenu.targetItem.isDirectory && (
+              <>
+                <div onClick={() => handleStartCreate('file')} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
+                  <span className="flex items-center gap-2">New File...</span>
+                </div>
+                <div onClick={() => handleStartCreate('folder')} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
+                  <span className="flex items-center gap-2">New Folder...</span>
+                </div>
+                <div className="h-px bg-zinc-700 my-1 w-full" />
+              </>
+            )}
+
+            <div onClick={() => { toast("Tauri Shell Access Required for Explorer Reveal."); closeMenu(); }} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
+              <span className="flex items-center gap-2">Reveal in File Explorer</span>
+              <span className="text-[10px] opacity-50">Shift+Alt+R</span>
+            </div>
+            <div onClick={() => { toast("Please use Ctrl+` or the Bottom Panel to open Terminal."); closeMenu(); }} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
+              <span className="flex items-center gap-2">Open in Integrated Terminal</span>
+            </div>
+            
+            <div className="h-px bg-zinc-700 my-1 w-full" />
+
+            <div onClick={() => { toast("Standard Cut initialized."); closeMenu(); }} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
+              <span>Cut</span><span className="text-[10px] opacity-50">Ctrl+X</span>
+            </div>
+            <div onClick={() => { toast("Standard Copy initialized."); closeMenu(); }} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
+              <span>Copy</span><span className="text-[10px] opacity-50">Ctrl+C</span>
+            </div>
+            <div onClick={() => { toast("Standard Paste triggered."); closeMenu(); }} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
+              <span>Paste</span><span className="text-[10px] opacity-50">Ctrl+V</span>
+            </div>
+
+            <div className="h-px bg-zinc-700 my-1 w-full" />
+
+            <div onClick={() => copyToClipboard(contextMenu.targetItem.path, 'Absolute Path')} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
+              <span>Copy Path</span><span className="text-[10px] opacity-50">Shift+Alt+C</span>
+            </div>
+            <div onClick={() => copyToClipboard(contextMenu.targetItem.relativePath, 'Relative Path')} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
+              <span>Copy Relative Path</span><span className="text-[10px] opacity-50">Ctrl+K C</span>
+            </div>
+
+            <div className="h-px bg-zinc-700 my-1 w-full" />
+
+            <div onClick={triggerRenameMode} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between group">
+              <span className="flex items-center gap-2"><Edit2 size={12} className="opacity-0 group-hover:opacity-100"/> Rename...</span><span className="text-[10px] opacity-50">F2</span>
+            </div>
+            <div onClick={executeDelete} className="px-4 py-1.5 hover:bg-red-600 hover:text-white cursor-pointer flex items-center justify-between group">
+              <span className="flex items-center gap-2 text-red-400 group-hover:text-white"><Trash2 size={12}/> Delete</span><span className="text-[10px] opacity-50">Del</span>
+            </div>
+
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 text-[11px] font-mono uppercase tracking-widest text-zinc-400">
         <span className="flex items-center gap-2">EXPLORER {!isWorkspaceHost && fileTree.length > 0 && <Globe size={10} className="text-[#00ff41] animate-pulse" title="Virtual Remote Tree" />}</span>
         <MoreHorizontal size={14} className="hover:text-white cursor-pointer" />
@@ -419,7 +607,7 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
             <>
               <div onClick={(e) => handleStartCreate('file', e)} className="p-1 hover:bg-zinc-700 rounded cursor-pointer" title="New File"><FilePlus size={14}/></div>
               <div onClick={(e) => handleStartCreate('folder', e)} className="p-1 hover:bg-zinc-700 rounded cursor-pointer" title="New Folder"><FolderPlus size={14}/></div>
-              <div onClick={(e) => { e.stopPropagation(); scanAndBroadcastDirectory(projectRoot); }} className="p-1 hover:bg-zinc-700 rounded cursor-pointer" title="Refresh Explorer"><RefreshCw size={14}/></div>
+              <div onClick={(e) => { e.stopPropagation(); triggerGlobalSync(); }} className="p-1 hover:bg-zinc-700 rounded cursor-pointer" title="Refresh Explorer"><RefreshCw size={14}/></div>
               <div onClick={(e) => { e.stopPropagation(); setCollapseTrigger(prev => prev + 1); }} className="p-1 hover:bg-zinc-700 rounded cursor-pointer" title="Collapse Folders in Explorer"><ListCollapse size={14}/></div>
             </>
           }
@@ -440,6 +628,7 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
                   key={index} item={item} projectRoot={projectRoot} activeFile={activeFile} setActiveFile={setActiveFile} 
                   selectedNode={selectedNode} setSelectedNode={setSelectedNode} creatingItem={creatingItem} setCreatingItem={setCreatingItem}
                   newItemName={newItemName} setNewItemName={setNewItemName} handleCreateSubmit={handleCreateSubmit} collapseTrigger={collapseTrigger} unsavedFiles={unsavedFiles}
+                  onContextMenu={handleContextMenu} renamingItem={renamingItem} handleRenameSubmit={handleRenameSubmit}
                 />
               ))}
             </div>

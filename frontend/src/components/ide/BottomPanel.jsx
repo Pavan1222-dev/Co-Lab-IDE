@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-// 🔴 Added Layout/Tab Icons
-import { X, Plus, Trash2, TerminalSquare, Globe, Lock, Unlock, Play, Cpu, AlertTriangle, ShieldCheck, CheckCircle2, ListX, PanelBottom } from 'lucide-react';
+import { X, Plus, Trash2, TerminalSquare, Globe, Lock, Unlock, Play, Cpu, AlertTriangle, ShieldCheck, CheckCircle2, ListX, AlignLeft } from 'lucide-react';
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import { Command } from '@tauri-apps/plugin-shell';
@@ -13,8 +12,9 @@ import { doc, getDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import 'xterm/css/xterm.css';
 import styles from './IDE.module.css';
-// 🔴 Import the new separate component
+
 import ProblemsPanel from './ProblemsPanel';
+import OutputPanel from './OutputPanel'; // 🔴 NEW: Imported OutputPanel
 
 const SIGNALING_SERVERS = ['wss://colab-matchmaker-v2.onrender.com'];
 const isTauri = '__TAURI_INTERNALS__' in window || '__TAURI__' in window;
@@ -585,7 +585,6 @@ const TerminalInstance = ({ termData, isActive, initialPath, roomHash }) => {
   );
 };
 
-// 🔴 IMPORTANT: You must now pass 'problems' and 'onProblemClick' props to BottomPanel from your IDE container
 export default function BottomPanel({ setTerminalOpen, initialPath, roomHash, problems = [], onProblemClick }) {
   const [localTerminals, setLocalTerminals] = useState(() => {
      const initId = Date.now();
@@ -598,7 +597,7 @@ export default function BottomPanel({ setTerminalOpen, initialPath, roomHash, pr
   const [newShellScope, setNewShellScope] = useState('shared'); 
   const [projectHostId, setProjectHostId] = useState(null);
 
-  // 🔴 NEW STATE: Active Tab (Terminal vs Problems)
+  // 🔴 NEW STATE: Active Tab (Terminal vs Output vs Problems)
   const [activeTab, setActiveTab] = useState('terminal');
 
   const managerProvider = useRef(null);
@@ -671,7 +670,7 @@ export default function BottomPanel({ setTerminalOpen, initialPath, roomHash, pr
       setLocalTerminals([...localTerminals, newTerm]);
     }
     setActiveId(newId);
-    setActiveTab('terminal'); // Switch back to terminal on add
+    setActiveTab('terminal'); 
   };
 
   const removeTerminal = async (idToRemove, scope, creatorUid, e) => {
@@ -697,8 +696,8 @@ export default function BottomPanel({ setTerminalOpen, initialPath, roomHash, pr
   return (
     <div className={styles.bottomPanel} style={{ height: '320px', display: 'flex', flexDirection: 'column', backgroundColor: '#09090b', borderTop: '1px solid #27272a' }}>
       
-      {/* 🔴 NEW: Bottom Panel Tabs Header */}
-      <div className="flex justify-between items-center px-2 bg-[#09090b] border-b border-zinc-800 select-none">
+      {/* 🔴 Bottom Panel Tabs Header */}
+      <div className="flex justify-between items-center px-2 bg-[#09090b] border-b border-zinc-800 select-none shrink-0">
         <div className="flex gap-1 items-center">
           <button 
              onClick={() => setActiveTab('terminal')}
@@ -706,6 +705,15 @@ export default function BottomPanel({ setTerminalOpen, initialPath, roomHash, pr
           >
              <TerminalSquare size={14} /> TERMINAL
           </button>
+          
+          {/* 🔴 NEW: OUTPUT TAB */}
+          <button 
+             onClick={() => setActiveTab('output')}
+             className={`flex items-center gap-2 px-3 py-2 text-[10px] font-bold tracking-widest transition-colors border-b-2 ${activeTab === 'output' ? 'text-white border-[#c084fc]' : 'text-zinc-500 border-transparent hover:text-zinc-300'}`}
+          >
+             <AlignLeft size={14} /> OUTPUT
+          </button>
+
           <button 
              onClick={() => setActiveTab('problems')}
              className={`flex items-center gap-2 px-3 py-2 text-[10px] font-bold tracking-widest transition-colors border-b-2 ${activeTab === 'problems' ? 'text-white border-[#c084fc]' : 'text-zinc-500 border-transparent hover:text-zinc-300'}`}
@@ -717,7 +725,6 @@ export default function BottomPanel({ setTerminalOpen, initialPath, roomHash, pr
         <button onClick={() => setTerminalOpen(false)} className="text-zinc-500 hover:text-white transition-colors p-2"><X size={14} /></button>
       </div>
 
-      {/* 🔴 Main Content Area (Switches between Terminal and Problems) */}
       <div className="flex flex-1 overflow-hidden relative">
         
         {/* Terminal View */}
@@ -776,9 +783,16 @@ export default function BottomPanel({ setTerminalOpen, initialPath, roomHash, pr
             </div>
         </div>
 
-         {/* 🔴 Problems View (Rendered conditionally) */}
+        {/* 🔴 NEW: Output View Component */}
+        {activeTab === 'output' && (
+           <div className="flex-1 bg-[#09090b] flex flex-col relative">
+             <OutputPanel />
+           </div>
+        )}
+
+         {/* Problems View */}
          {activeTab === 'problems' && (
-            <div className="flex-1 bg-[#09090b]">
+            <div className="flex-1 bg-[#09090b] flex flex-col relative">
                <ProblemsPanel problems={problems} onProblemClick={onProblemClick} />
             </div>
          )}
