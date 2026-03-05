@@ -3,10 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Hash, Terminal, Plus, Users, HardDrive, ArrowRight, Crown, 
   Loader2, Link, Play, Shield, Lock, X, FolderOpen, Mail, 
-  CheckCircle2, ShieldAlert, MessageSquare 
+  CheckCircle2, ShieldAlert, MessageSquare, MoreVertical, Trash2 
 } from 'lucide-react';
 import { db, auth } from '../../../services/firebase';
-import { collection, addDoc, doc, setDoc, onSnapshot, getDoc } from 'firebase/firestore'; 
+import { collection, addDoc, doc, setDoc, onSnapshot, getDoc, deleteDoc } from 'firebase/firestore'; 
 import { getUserWorkspaces } from '../../../services/workspaceService';
 import { open } from '@tauri-apps/plugin-dialog';
 
@@ -76,6 +76,9 @@ export default function WorkspacesTab({ onOpenIde }) {
   
   const [activeRequest, setActiveRequest] = useState(null);
 
+  // 🔴 NEW: Track which 3-dot menu is open
+  const [openMenuId, setOpenMenuId] = useState(null);
+
   useEffect(() => {
     if (!auth.currentUser) return;
     const syncWithGrid = async () => {
@@ -87,6 +90,13 @@ export default function WorkspacesTab({ onOpenIde }) {
       } finally { setLoading(false); }
     };
     syncWithGrid();
+  }, []);
+
+  // 🔴 NEW: Global click listener to close the 3-dot menu if you click outside
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenuId(null);
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
   }, []);
 
   const handleHostBrowse = async () => {
@@ -226,6 +236,21 @@ export default function WorkspacesTab({ onOpenIde }) {
     onOpenIde(activeRequest.hash, false, guestSyncPath);
   };
 
+  // 🔴 NEW: Logic to physically delete the project node from Firebase
+  const handleDeleteMount = async (hashId) => {
+    try {
+      // Optimistically remove from UI
+      setWorkspaces(prev => prev.filter(ws => (ws.hash || ws.id) !== hashId));
+      
+      // Delete document from firestore
+      await deleteDoc(doc(db, "projects", hashId));
+      toast.success("Grid Node permanently deleted.");
+    } catch (err) {
+      console.error("Deletion failed:", err);
+      toast.error("Failed to delete the mount. Check permissions.");
+    }
+  };
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-10 relative">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -272,26 +297,70 @@ export default function WorkspacesTab({ onOpenIde }) {
 
       <div className="space-y-6">
         <h2 className="text-xs font-black uppercase tracking-[0.3em] text-zinc-600 px-1 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-[#00ff41] animate-pulse" /> Active Grid Nodes</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 relative">
           {loading ? ( <Loader2 className="animate-spin text-[#c084fc] mx-auto col-span-full my-10" size={32} /> ) : 
            workspaces.length === 0 ? ( <div className="col-span-full py-10 border border-dashed border-zinc-800 text-center text-zinc-600 font-mono text-xs">NO LOCAL NODES DETECTED.</div> ) : 
            ( workspaces.map((ws) => {
              const isHost = ws.hostId === auth.currentUser?.uid;
+             const targetHash = ws.hash || ws.id;
+             const isMenuOpen = openMenuId === targetHash;
+
              return (
-               <div key={ws.id} className={`${styles.themedCard} group hover:border-[#c084fc]/50 transition-all cursor-default`}>
+               <div key={targetHash} className={`${styles.themedCard} group hover:border-[#c084fc]/50 transition-all cursor-default relative`}>
+                 
                  <div className="flex justify-between items-start mb-6">
                    <div className="bg-zinc-900 p-3 rounded-xl text-[#c084fc]"><HardDrive size={20} /></div>
-                   <div className="flex flex-col items-end gap-2">
-                     {isHost ? <span className="text-[9px] font-black bg-yellow-500/10 text-yellow-500 px-2 py-1 rounded uppercase flex items-center gap-1"><Crown size={10}/> Host</span> : <span className="text-[9px] font-black bg-blue-500/10 text-blue-500 px-2 py-1 rounded uppercase flex items-center gap-1"><Users size={10}/> Member</span>}
-                     <span className="text-[10px] font-mono text-zinc-500 bg-black px-2 py-1 rounded border border-zinc-800">{ws.hash || ws.id}</span>
+                   
+                   <div className="flex flex-col items-end gap-2 relative">
+                     <div className="flex items-center gap-2">
+                       {isHost ? <span className="text-[9px] font-black bg-yellow-500/10 text-yellow-500 px-2 py-1 rounded uppercase flex items-center gap-1"><Crown size={10}/> Host</span> : <span className="text-[9px] font-black bg-blue-500/10 text-blue-500 px-2 py-1 rounded uppercase flex items-center gap-1"><Users size={10}/> Member</span>}
+                       
+                       {/* 🔴 NEW: The 3-Dot Menu Button */}
+                       <div 
+                         className={styles.cardMenuBtn}
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           setOpenMenuId(isMenuOpen ? null : targetHash);
+                         }}
+                       >
+                         <MoreVertical size={16} />
+                       </div>
+                     </div>
+
+                     <span className="text-[10px] font-mono text-zinc-500 bg-black px-2 py-1 rounded border border-zinc-800">{targetHash}</span>
+                     
+                     {/* 🔴 NEW: The Dropdown Menu */}
+                     <AnimatePresence>
+                       {isMenuOpen && (
+                         <motion.div 
+                           initial={{ opacity: 0, y: -10, scale: 0.9 }} 
+                           animate={{ opacity: 1, y: 0, scale: 1 }} 
+                           exit={{ opacity: 0, y: -10, scale: 0.9 }}
+                           transition={{ duration: 0.15 }}
+                           className={styles.cardMenuDropdown}
+                         >
+                           <div 
+                             className={`${styles.cardMenuItem} text-red-500 hover:bg-red-500 hover:text-white`}
+                             onClick={(e) => {
+                               e.stopPropagation();
+                               handleDeleteMount(targetHash);
+                             }}
+                           >
+                             <Trash2 size={12} />
+                             Delete Mount
+                           </div>
+                         </motion.div>
+                       )}
+                     </AnimatePresence>
                    </div>
                  </div>
+
                  <h3 className="text-lg font-bold group-hover:text-[#c084fc] transition-colors">{ws.name}</h3>
+                 
                  <div className="mt-6 pt-4 border-t border-zinc-900 flex items-center justify-between">
                    <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-600 uppercase"><Play size={10} className="text-[#00ff41]"/> Online</div>
                    <button 
                      onClick={async () => {
-                       const targetHash = ws.hash || ws.id;
                        let savedPath = await getPathFromMemory(targetHash);
 
                        if (!savedPath && isTauri) {
@@ -336,7 +405,7 @@ export default function WorkspacesTab({ onOpenIde }) {
                         <input 
                           required type="password" placeholder="8-16 chars" 
                           value={projectData.password} onChange={e=>setProjectData({...projectData, password:e.target.value})} 
-                          minLength={8} maxLength={16} // 🔴 ADDED HTML LIMITS
+                          minLength={8} maxLength={16} 
                           className="w-full bg-black border border-zinc-800 p-3 text-sm text-white outline-none focus:border-[#c084fc] rounded-lg" 
                         />
                       </div>
@@ -376,7 +445,7 @@ export default function WorkspacesTab({ onOpenIde }) {
                   <input 
                     required type="password" placeholder="Enter Host Password (8-16 chars)" 
                     value={joinPassword} onChange={e=>setJoinPassword(e.target.value)} 
-                    minLength={8} maxLength={16} // 🔴 ADDED HTML LIMITS
+                    minLength={8} maxLength={16} 
                     className="w-full bg-black border border-zinc-800 p-3 text-sm text-white outline-none focus:border-[#00ff41] rounded-lg tracking-widest" 
                   />
                 </div>

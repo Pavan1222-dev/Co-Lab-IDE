@@ -14,15 +14,12 @@ import 'xterm/css/xterm.css';
 import styles from './IDE.module.css';
 
 import ProblemsPanel from './ProblemsPanel';
-import OutputPanel from './OutputPanel'; // 🔴 NEW: Imported OutputPanel
+import OutputPanel from './OutputPanel'; 
 
 const SIGNALING_SERVERS = ['wss://colab-matchmaker-v2.onrender.com'];
 const isTauri = '__TAURI_INTERNALS__' in window || '__TAURI__' in window;
 const osSeparator = navigator.userAgent.includes('Win') ? '\\' : '/';
 
-// ==========================================
-// PATH TRANSLATION ALGORITHM
-// ==========================================
 const getRelativeTraversal = (fromPath, toPath) => {
   if (fromPath === toPath) return '';
   const fromParts = fromPath.split('/').filter(Boolean);
@@ -41,15 +38,12 @@ const getRelativeTraversal = (fromPath, toPath) => {
   return pathArr.length > 0 ? pathArr.join('/') : '';
 };
 
-// ==========================================
-// TERMINAL INSTANCE COMPONENT
-// ==========================================
 const TerminalInstance = ({ termData, isActive, initialPath, roomHash }) => {
   const terminalRef = useRef(null);
   const term = useRef(null);
   const fitAddon = useRef(null);
   
-  const currentCwd = useRef(initialPath || ''); 
+  const currentCwd = useRef(termData.overridePath || initialPath || ''); 
   const currentInput = useRef(''); 
   const cursorPos = useRef(0); 
 
@@ -260,25 +254,6 @@ const TerminalInstance = ({ termData, isActive, initialPath, roomHash }) => {
       return true;
     });
 
-    const checkPathEscape = (currentDir, rootDir, cdTarget) => {
-      if (!rootDir) return false; 
-      const normalize = (p) => p.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
-      const root = normalize(rootDir);
-      let current = normalize(currentDir);
-      let target = normalize(cdTarget.replace(/^["']|["']$/g, '').trim());
-
-      if (target.match(/^[a-z]:\//i) || target.startsWith('/')) return !target.startsWith(root);
-
-      let currentParts = current.split('/');
-      let targetParts = target.split('/');
-
-      for (const part of targetParts) {
-        if (part === '..') currentParts.pop(); 
-        else if (part !== '.' && part !== '') currentParts.push(part); 
-      }
-      return !currentParts.join('/').startsWith(root); 
-    };
-
     const getLocalRelative = () => {
        if (!initialPath) return '';
        const normInit = initialPath.replace(/\\/g, '/');
@@ -289,6 +264,7 @@ const TerminalInstance = ({ termData, isActive, initialPath, roomHash }) => {
        return '';
     };
 
+    // 🔴 ULTIMATE BULLETPROOF COMMAND ENGINE
     const runRoutedCommand = async (input, relativeTarget, isRemoteEvent = false, manualTrigger = false) => {
       const trimmedInput = input.trim();
       if (!trimmedInput) {
@@ -301,51 +277,48 @@ const TerminalInstance = ({ termData, isActive, initialPath, roomHash }) => {
         return;
       }
 
-      const isCdCommand = trimmedInput.toLowerCase().startsWith('cd ') || trimmedInput.toLowerCase() === 'cd';
-      const shell = termData.type;
-      
-      if (isShared && isCdCommand && !isRemoteEvent) {
-        let rawPath = trimmedInput === 'cd' ? '' : trimmedInput.substring(3).trim();
-        if (!rawPath && (shell === 'bash' || shell === 'sh')) rawPath = initialPath;
-        if (rawPath && checkPathEscape(currentCwd.current, initialPath, rawPath)) {
-          customWrite(`\r\n\x1b[31mSorry you cant go out of the path on this shared terminal so use a local terminal instead\x1b[0m\r\n${getPrompt()}`);
-          return; 
-        }
-      }
-
       if (manualTrigger && isShared) {
          const time = new Date().toLocaleTimeString();
          customWrite(`\x1b[35m[System: ${auth.currentUser?.displayName || 'Peer'} manually executed queue command at ${time}]\x1b[0m\r\n`);
       }
       
       let scriptToRun = input;
-      if (shell === 'cmd') scriptToRun = scriptToRun.replace(/\n/g, ' && ');
-
+      const shell = termData.type;
+      const pathDelimiter = "___COLAB_PATH___";
       let baseSetup = '';
-      if (shell === 'powershell') baseSetup = `Set-Location -LiteralPath "${currentCwd.current}"; `;
-      else if (shell === 'cmd') baseSetup = `cd /d "${currentCwd.current}" && `;
-      else baseSetup = `cd "${currentCwd.current}" && `;
 
+      // Standardize script formats and ensure execution safety
+      if (shell === 'powershell') {
+        scriptToRun = scriptToRun.replace(/\n/g, '; ');
+        baseSetup = `Set-Location -LiteralPath "${currentCwd.current}"; `;
+      } else if (shell === 'cmd') {
+        scriptToRun = scriptToRun.replace(/\n/g, ' & ');
+        baseSetup = `cd /d "${currentCwd.current}" & `;
+      } else {
+        scriptToRun = scriptToRun.replace(/\n/g, '; ');
+        baseSetup = `cd "${currentCwd.current}"; `;
+      }
+
+      // Handle P2P routing to exact folder targets
       if (isShared && relativeTarget !== undefined) {
          const localRelative = getLocalRelative();
          const traversal = getRelativeTraversal(localRelative, relativeTarget);
          
          if (traversal) {
             const safeTraversal = traversal.replace(/\//g, osSeparator);
-            if (shell === 'powershell') scriptToRun = `${baseSetup}cd "${safeTraversal}"; ${scriptToRun}`;
-            else if (shell === 'cmd') scriptToRun = `${baseSetup}cd /d "${safeTraversal}" && ${scriptToRun}`;
-            else scriptToRun = `${baseSetup}cd "${safeTraversal}" && ${scriptToRun}`;
-         } else {
-            scriptToRun = `${baseSetup}${scriptToRun}`;
+            if (shell === 'powershell') baseSetup = `${baseSetup}cd "${safeTraversal}"; `;
+            else if (shell === 'cmd') baseSetup = `${baseSetup}cd /d "${safeTraversal}" & `;
+            else baseSetup = `${baseSetup}cd "${safeTraversal}"; `;
          }
-      } else {
-         scriptToRun = `${baseSetup}${scriptToRun}`;
       }
 
-      if (isCdCommand && trimmedInput !== 'cd') {
-         if (shell === 'powershell') scriptToRun = `${scriptToRun}; (Get-Location).Path`;
-         else if (shell === 'cmd') scriptToRun = `${scriptToRun} && cd`;
-         else scriptToRun = `${scriptToRun} && pwd`;
+      // Combine setup, script, and forced path delimiter feedback
+      if (shell === 'powershell') {
+         scriptToRun = `${baseSetup}${scriptToRun}; Write-Output "${pathDelimiter}$((Get-Location).Path)"`;
+      } else if (shell === 'cmd') {
+         scriptToRun = `${baseSetup}${scriptToRun} & echo ${pathDelimiter}%cd%`;
+      } else {
+         scriptToRun = `${baseSetup}${scriptToRun}; echo "${pathDelimiter}$(pwd)"`;
       }
 
       try {
@@ -353,29 +326,33 @@ const TerminalInstance = ({ termData, isActive, initialPath, roomHash }) => {
         const command = Command.create(shell, args);
         let capturedPath = '';
 
-        command.stdout.on('data', line => {
-          const trimmed = line.trim();
-          if (isCdCommand && trimmed && (trimmed.includes('/') || trimmed.includes('\\'))) {
-            capturedPath = trimmed;
-          } else if (trimmed) {
-            customWrite(line + '\r\n');
+        command.stdout.on('data', chunk => {
+          // If the chunk contains our secret delimiter, strip it out and save the new path!
+          if (chunk.includes(pathDelimiter)) {
+             const parts = chunk.split(pathDelimiter);
+             if (parts[0]) customWrite(parts[0].replace(/\n/g, '\r\n'));
+             capturedPath = parts[1].trim();
+          } else {
+             // Normal output
+             customWrite(chunk.replace(/\n/g, '\r\n'));
           }
         });
 
-        command.stderr.on('data', line => {
-          customWrite('\x1b[31m' + line + '\x1b[0m\r\n');
+        command.stderr.on('data', chunk => {
+          customWrite('\x1b[31m' + chunk.replace(/\n/g, '\r\n') + '\x1b[0m');
         });
 
         command.on('close', () => {
-           if (isCdCommand && capturedPath && !capturedPath.toLowerCase().includes('error') && !capturedPath.toLowerCase().includes('not found')) {
+           // ALWAYS execute this to unlock the terminal again!
+           if (capturedPath) {
              currentCwd.current = capturedPath;
            }
-           customWrite(getPrompt());
+           customWrite('\r\n' + getPrompt());
         });
 
         await command.spawn();
       } catch (err) {
-        customWrite(`\x1b[31mShell Error: ${err.message || err}\x1b[0m\r\n${getPrompt()}`);
+        customWrite(`\r\n\x1b[31mShell Error: ${err.message || err}\x1b[0m\r\n${getPrompt()}`);
       }
     };
 
@@ -474,7 +451,7 @@ const TerminalInstance = ({ termData, isActive, initialPath, roomHash }) => {
       terminal.dispose();
       term.current = null;
     };
-  }, [termData.id, termData.type, termData.scope, termData.creatorName, roomHash, initialPath, isShared, customWrite]); 
+  }, [termData.id, termData.type, termData.scope, termData.creatorName, roomHash, initialPath, isShared, customWrite, termData.overridePath]); 
 
   useEffect(() => {
     if (isActive) {
@@ -597,7 +574,6 @@ export default function BottomPanel({ setTerminalOpen, initialPath, roomHash, pr
   const [newShellScope, setNewShellScope] = useState('shared'); 
   const [projectHostId, setProjectHostId] = useState(null);
 
-  // 🔴 NEW STATE: Active Tab (Terminal vs Output vs Problems)
   const [activeTab, setActiveTab] = useState('terminal');
 
   const managerProvider = useRef(null);
@@ -641,6 +617,32 @@ export default function BottomPanel({ setTerminalOpen, initialPath, roomHash, pr
        ydoc.destroy();
     }
   }, [roomHash]);
+
+  useEffect(() => {
+    const handleGlobalOpenTerminal = (e) => {
+       const targetPath = e.detail?.path;
+       if (!targetPath) return;
+       
+       const newId = Date.now();
+       const shortName = targetPath.split(/[\\/]/).pop() || 'Terminal';
+       const newTerm = {
+          id: newId,
+          type: 'powershell',
+          scope: 'local',
+          name: `Local (${shortName})`,
+          creatorUid: auth.currentUser?.uid || 'local',
+          creatorName: auth.currentUser?.displayName?.split(' ')[0] || 'User',
+          overridePath: targetPath 
+       };
+       
+       setLocalTerminals(prev => [...prev, newTerm]);
+       setActiveId(newId);
+       setActiveTab('terminal');
+    };
+    
+    window.addEventListener('global-open-terminal', handleGlobalOpenTerminal);
+    return () => window.removeEventListener('global-open-terminal', handleGlobalOpenTerminal);
+  }, []);
 
   const allTerminals = useMemo(() => [...sharedTerminals, ...localTerminals], [sharedTerminals, localTerminals]);
 
@@ -696,7 +698,7 @@ export default function BottomPanel({ setTerminalOpen, initialPath, roomHash, pr
   return (
     <div className={styles.bottomPanel} style={{ height: '320px', display: 'flex', flexDirection: 'column', backgroundColor: '#09090b', borderTop: '1px solid #27272a' }}>
       
-      {/* 🔴 Bottom Panel Tabs Header */}
+      {/* Bottom Panel Tabs Header */}
       <div className="flex justify-between items-center px-2 bg-[#09090b] border-b border-zinc-800 select-none shrink-0">
         <div className="flex gap-1 items-center">
           <button 
@@ -706,7 +708,6 @@ export default function BottomPanel({ setTerminalOpen, initialPath, roomHash, pr
              <TerminalSquare size={14} /> TERMINAL
           </button>
           
-          {/* 🔴 NEW: OUTPUT TAB */}
           <button 
              onClick={() => setActiveTab('output')}
              className={`flex items-center gap-2 px-3 py-2 text-[10px] font-bold tracking-widest transition-colors border-b-2 ${activeTab === 'output' ? 'text-white border-[#c084fc]' : 'text-zinc-500 border-transparent hover:text-zinc-300'}`}
@@ -783,14 +784,12 @@ export default function BottomPanel({ setTerminalOpen, initialPath, roomHash, pr
             </div>
         </div>
 
-        {/* 🔴 NEW: Output View Component */}
         {activeTab === 'output' && (
            <div className="flex-1 bg-[#09090b] flex flex-col relative">
              <OutputPanel />
            </div>
         )}
 
-         {/* Problems View */}
          {activeTab === 'problems' && (
             <div className="flex-1 bg-[#09090b] flex flex-col relative">
                <ProblemsPanel problems={problems} onProblemClick={onProblemClick} />

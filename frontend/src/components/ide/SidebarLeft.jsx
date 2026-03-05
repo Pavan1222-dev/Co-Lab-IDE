@@ -1,22 +1,18 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom'; // 🔴 IMPORTED: React Portal to escape all containers
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronDown, ChevronRight, FolderOpen, Loader2, Globe, 
   FilePlus, FolderPlus, RefreshCw, ListCollapse, Save, XSquare, 
-  Folder, MoreHorizontal, X, Trash2, Edit2
+  Folder, MoreHorizontal, X, Trash2, Edit2, SplitSquareHorizontal, TerminalSquare, Copy
 } from 'lucide-react';
 
 import { 
   DiJavascript1, DiReact, DiPython, DiJava, DiRust, DiHtml5, DiCss3, 
   DiSass, DiDocker, DiGit, DiNpm, DiDatabase, DiTerminal 
 } from "react-icons/di";
-import { 
-  SiTypescript, SiCplusplus, SiGo, SiPhp, SiRuby, SiSwift, SiYaml
-} from "react-icons/si";
-import { 
-  VscJson, VscMarkdown, VscKey, VscFileZip, VscFileMedia, 
-  VscFileCode, VscFile 
-} from "react-icons/vsc";
+import { SiTypescript, SiCplusplus, SiGo, SiPhp, SiRuby, SiSwift, SiYaml } from "react-icons/si";
+import { VscJson, VscMarkdown, VscKey, VscFileZip, VscFileMedia, VscFileCode, VscFile } from "react-icons/vsc";
 
 import { readDir, writeTextFile, mkdir, remove, rename } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
@@ -225,17 +221,14 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
   const [selectedNode, setSelectedNode] = useState(null); 
   const [creatingItem, setCreatingItem] = useState(null); 
   
-  // Renaming State
   const [renamingItem, setRenamingItem] = useState(null);
   const [newItemName, setNewItemName] = useState('');
 
-  // CONTEXT MENU STATE
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, targetItem: null });
 
   const yProvider = useRef(null);
   const yTreeMap = useRef(null);
   const ySyncMap = useRef(null);
-  const yActionMap = useRef(null); 
 
   const scanAndBroadcastDirectory = useCallback(async (rootPath) => {
     if (!rootPath || !isTauri) return;
@@ -318,16 +311,6 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
   }, [projectRoot]);
 
   useEffect(() => {
-    const doRescan = () => {
-      if (isWorkspaceHost && projectRoot) {
-        scanAndBroadcastDirectory(projectRoot);
-      }
-    };
-    window.addEventListener('p2p-force-rescan', doRescan);
-    return () => window.removeEventListener('p2p-force-rescan', doRescan);
-  }, [isWorkspaceHost, projectRoot, scanAndBroadcastDirectory]);
-
-  useEffect(() => {
     const safeRoom = roomHash || 'local-offline-room';
     const treeRoomName = `${safeRoom}-ghost-tree`;
     
@@ -335,7 +318,6 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
     yProvider.current = new WebrtcProvider(treeRoomName, ydoc, { signaling: SIGNALING_SERVERS });
     yTreeMap.current = ydoc.getMap('projectTree');
     ySyncMap.current = ydoc.getMap('syncProgress');
-    yActionMap.current = ydoc.getMap('actions'); 
 
     yTreeMap.current.observe(() => {
       if (yTreeMap.current.has('treeData')) setFileTree(yTreeMap.current.get('treeData'));
@@ -343,12 +325,6 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
 
     ySyncMap.current.observe(() => {
       if (ySyncMap.current.has('status')) setSyncStatus(ySyncMap.current.get('status'));
-    });
-
-    yActionMap.current.observe((event) => {
-       if (event.keysChanged.has('forceRescan')) {
-           window.dispatchEvent(new Event('p2p-force-rescan'));
-       }
     });
 
     return () => {
@@ -366,12 +342,16 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
     }
   }, [projectRoot, isWorkspaceHost, scanAndBroadcastDirectory]);
 
-  // --- ULTIMATE SYNC AND CONTEXT MENU ACTIONS ---
-
-  const triggerGlobalSync = () => {
-    if (isWorkspaceHost) scanAndBroadcastDirectory(projectRoot); 
-    else if (yActionMap.current) yActionMap.current.set('forceRescan', Date.now());
-  };
+  // 🔴 GLOBAL CLICK AWAY LISTENER
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (contextMenu.visible) setContextMenu(prev => ({ ...prev, visible: false }));
+    };
+    if (contextMenu.visible) {
+      setTimeout(() => document.addEventListener('click', handleClickOutside), 10);
+    }
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [contextMenu.visible]);
 
   const closeMenu = () => {
     setContextMenu({ ...contextMenu, visible: false });
@@ -403,7 +383,7 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
       await remove(target.path, { recursive: true });
       toast.success(`Deleted: ${target.name}`);
       if (activeFile?.path === target.path) setActiveFile({ name: '', path: null, relativePath: '' });
-      triggerGlobalSync();
+      scanAndBroadcastDirectory(projectRoot); 
     } catch {
       toast.error(`Delete failed. Permission denied.`);
     }
@@ -429,7 +409,7 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
       await rename(renamingItem.path, newFullPath);
       toast.success(`Renamed to ${newItemName}`);
       setRenamingItem(null);
-      triggerGlobalSync();
+      scanAndBroadcastDirectory(projectRoot); 
     } catch {
       toast.error(`Rename failed.`);
       setRenamingItem(null);
@@ -439,6 +419,28 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
   const copyToClipboard = (text, typeLabel) => {
     navigator.clipboard.writeText(text);
     toast.success(`${typeLabel} copied!`);
+    closeMenu();
+  };
+
+  // 🔴 GLOBAL DISPATCHERS
+  const handleOpenToSide = () => {
+    if (contextMenu.targetItem.isDirectory) return;
+    window.dispatchEvent(new CustomEvent('global-open-side-editor', { 
+      detail: {
+        name: contextMenu.targetItem.name,
+        fullPath: contextMenu.targetItem.path,
+        relativePath: contextMenu.targetItem.relativePath
+      }
+    }));
+    closeMenu();
+  };
+
+  const handleOpenTerminal = () => {
+    const targetPath = contextMenu.targetItem.isDirectory 
+      ? contextMenu.targetItem.path 
+      : contextMenu.targetItem.path.substring(0, contextMenu.targetItem.path.lastIndexOf(osSeparator));
+      
+    window.dispatchEvent(new CustomEvent('global-open-terminal', { detail: { path: targetPath } }));
     closeMenu();
   };
 
@@ -476,82 +478,107 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
       }
       setCreatingItem(null);
       setNewItemName('');
-      triggerGlobalSync();
+      scanAndBroadcastDirectory(projectRoot); 
     } catch {
       toast.error(`Creation failed. Check permissions.`);
     }
   };
 
   const projectName = projectRoot ? projectRoot.split(osSeparator).pop().toUpperCase() : 'NO FOLDER MOUNTED';
+  const portalRoot = typeof document !== 'undefined' ? document.body : null;
 
   return (
     <div className={`${styles.sideBar} flex flex-col relative bg-[#09090b] w-64 shrink-0 border-r border-zinc-800`} onClick={() => { setSelectedNode(null); setCreatingItem(null); setRenamingItem(null); closeMenu(); }}>
       
-      <AnimatePresence>
-        {contextMenu.visible && contextMenu.targetItem && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.1 }}
-            className="fixed bg-zinc-950 border border-zinc-700 shadow-[0_10px_30px_rgba(0,0,0,0.8)] py-1.5 rounded-lg z-9999 text-[11px] text-zinc-300 min-w-55 font-sans flex flex-col select-none"
-            style={{ top: contextMenu.y, left: contextMenu.x }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            
-            {contextMenu.targetItem.isDirectory && (
-              <>
-                <div onClick={() => handleStartCreate('file')} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
-                  <span className="flex items-center gap-2">New File...</span>
-                </div>
-                <div onClick={() => handleStartCreate('folder')} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
-                  <span className="flex items-center gap-2">New Folder...</span>
-                </div>
-                <div className="h-px bg-zinc-700 my-1 w-full" />
-              </>
+      {/* 🔴 REACT PORTAL FOR CONTEXT MENU */}
+      {portalRoot && createPortal(
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 9999 }}>
+          <AnimatePresence>
+            {contextMenu.visible && (
+              <div 
+                className="fixed inset-0 pointer-events-auto" 
+                onClick={closeMenu} 
+                onContextMenu={(e) => { e.preventDefault(); closeMenu(); }} 
+                style={{ zIndex: 9998 }}
+              />
             )}
+          </AnimatePresence>
 
-            <div onClick={() => { toast("Tauri Shell Access Required for Explorer Reveal."); closeMenu(); }} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
-              <span className="flex items-center gap-2">Reveal in File Explorer</span>
-              <span className="text-[10px] opacity-50">Shift+Alt+R</span>
-            </div>
-            <div onClick={() => { toast("Please use Ctrl+` or the Bottom Panel to open Terminal."); closeMenu(); }} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
-              <span className="flex items-center gap-2">Open in Integrated Terminal</span>
-            </div>
-            
-            <div className="h-px bg-zinc-700 my-1 w-full" />
+          <AnimatePresence>
+            {contextMenu.visible && contextMenu.targetItem && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.1 }}
+                className="fixed bg-zinc-950 border border-zinc-700 shadow-[0_10px_30px_rgba(0,0,0,0.8)] py-1.5 rounded-lg z-9999 text-[11px] text-zinc-300 min-w-55 font-sans flex flex-col select-none pointer-events-auto"
+                style={{ top: contextMenu.y, left: contextMenu.x }}
+                onClick={(e) => e.stopPropagation()}
+                onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              >
+                
+                {contextMenu.targetItem.isDirectory && (
+                  <>
+                    <div onClick={() => handleStartCreate('file')} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
+                      <span className="flex items-center gap-2">New File...</span>
+                    </div>
+                    <div onClick={() => handleStartCreate('folder')} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
+                      <span className="flex items-center gap-2">New Folder...</span>
+                    </div>
+                    <div className="h-px bg-zinc-700 my-1 w-full" />
+                  </>
+                )}
 
-            <div onClick={() => { toast("Standard Cut initialized."); closeMenu(); }} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
-              <span>Cut</span><span className="text-[10px] opacity-50">Ctrl+X</span>
-            </div>
-            <div onClick={() => { toast("Standard Copy initialized."); closeMenu(); }} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
-              <span>Copy</span><span className="text-[10px] opacity-50">Ctrl+C</span>
-            </div>
-            <div onClick={() => { toast("Standard Paste triggered."); closeMenu(); }} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
-              <span>Paste</span><span className="text-[10px] opacity-50">Ctrl+V</span>
-            </div>
+                {!contextMenu.targetItem.isDirectory && (
+                  <div onClick={handleOpenToSide} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
+                    <span className="flex items-center gap-2">Open to the Side</span>
+                  </div>
+                )}
+                
+                <div onClick={() => { toast("Tauri Shell Access Required for Explorer Reveal."); closeMenu(); }} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
+                  <span className="flex items-center gap-2">Reveal in File Explorer</span>
+                  <span className="text-[10px] opacity-50">Shift+Alt+R</span>
+                </div>
+                <div onClick={handleOpenTerminal} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
+                  <span className="flex items-center gap-2">Open in Integrated Terminal</span>
+                </div>
+                
+                <div className="h-px bg-zinc-700 my-1 w-full" />
 
-            <div className="h-px bg-zinc-700 my-1 w-full" />
+                <div onClick={() => { toast("Standard Cut initialized."); closeMenu(); }} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
+                  <span>Cut</span><span className="text-[10px] opacity-50">Ctrl+X</span>
+                </div>
+                <div onClick={() => { toast("Standard Copy initialized."); closeMenu(); }} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
+                  <span>Copy</span><span className="text-[10px] opacity-50">Ctrl+C</span>
+                </div>
+                <div onClick={() => { toast("Standard Paste triggered."); closeMenu(); }} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
+                  <span>Paste</span><span className="text-[10px] opacity-50">Ctrl+V</span>
+                </div>
 
-            <div onClick={() => copyToClipboard(contextMenu.targetItem.path, 'Absolute Path')} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
-              <span>Copy Path</span><span className="text-[10px] opacity-50">Shift+Alt+C</span>
-            </div>
-            <div onClick={() => copyToClipboard(contextMenu.targetItem.relativePath, 'Relative Path')} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
-              <span>Copy Relative Path</span><span className="text-[10px] opacity-50">Ctrl+K C</span>
-            </div>
+                <div className="h-px bg-zinc-700 my-1 w-full" />
 
-            <div className="h-px bg-zinc-700 my-1 w-full" />
+                <div onClick={() => copyToClipboard(contextMenu.targetItem.path, 'Absolute Path')} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
+                  <span>Copy Path</span><span className="text-[10px] opacity-50">Shift+Alt+C</span>
+                </div>
+                <div onClick={() => copyToClipboard(contextMenu.targetItem.relativePath, 'Relative Path')} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between">
+                  <span>Copy Relative Path</span><span className="text-[10px] opacity-50">Ctrl+K C</span>
+                </div>
 
-            <div onClick={triggerRenameMode} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between group">
-              <span className="flex items-center gap-2"><Edit2 size={12} className="opacity-0 group-hover:opacity-100"/> Rename...</span><span className="text-[10px] opacity-50">F2</span>
-            </div>
-            <div onClick={executeDelete} className="px-4 py-1.5 hover:bg-red-600 hover:text-white cursor-pointer flex items-center justify-between group">
-              <span className="flex items-center gap-2 text-red-400 group-hover:text-white"><Trash2 size={12}/> Delete</span><span className="text-[10px] opacity-50">Del</span>
-            </div>
+                <div className="h-px bg-zinc-700 my-1 w-full" />
 
-          </motion.div>
-        )}
-      </AnimatePresence>
+                <div onClick={triggerRenameMode} className="px-4 py-1.5 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between group">
+                  <span className="flex items-center gap-2"><Edit2 size={12} className="opacity-0 group-hover:opacity-100"/> Rename...</span><span className="text-[10px] opacity-50">F2</span>
+                </div>
+                <div onClick={executeDelete} className="px-4 py-1.5 hover:bg-red-600 hover:text-white cursor-pointer flex items-center justify-between group">
+                  <span className="flex items-center gap-2 text-red-400 group-hover:text-white"><Trash2 size={12}/> Delete</span><span className="text-[10px] opacity-50">Del</span>
+                </div>
+
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>,
+        portalRoot
+      )}
 
       <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 text-[11px] font-mono uppercase tracking-widest text-zinc-400">
         <span className="flex items-center gap-2">EXPLORER {!isWorkspaceHost && fileTree.length > 0 && <Globe size={10} className="text-[#00ff41] animate-pulse" title="Virtual Remote Tree" />}</span>
@@ -607,7 +634,7 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
             <>
               <div onClick={(e) => handleStartCreate('file', e)} className="p-1 hover:bg-zinc-700 rounded cursor-pointer" title="New File"><FilePlus size={14}/></div>
               <div onClick={(e) => handleStartCreate('folder', e)} className="p-1 hover:bg-zinc-700 rounded cursor-pointer" title="New Folder"><FolderPlus size={14}/></div>
-              <div onClick={(e) => { e.stopPropagation(); triggerGlobalSync(); }} className="p-1 hover:bg-zinc-700 rounded cursor-pointer" title="Refresh Explorer"><RefreshCw size={14}/></div>
+              <div onClick={(e) => { e.stopPropagation(); scanAndBroadcastDirectory(projectRoot); }} className="p-1 hover:bg-zinc-700 rounded cursor-pointer" title="Refresh Explorer"><RefreshCw size={14}/></div>
               <div onClick={(e) => { e.stopPropagation(); setCollapseTrigger(prev => prev + 1); }} className="p-1 hover:bg-zinc-700 rounded cursor-pointer" title="Collapse Folders in Explorer"><ListCollapse size={14}/></div>
             </>
           }
@@ -622,7 +649,7 @@ export default function SidebarLeft({ activeFile, setActiveFile, projectRoot, ro
           {fileTree.length === 0 ? (
              <div className="px-6 py-2 text-[11px] text-zinc-500">{projectRoot ? 'Folder is empty.' : 'Awaiting host sync...'}</div>
           ) : (
-            <div className="flex flex-col pb-2 mt-px">
+            <div className="flex flex-col pb-2 mt-px pl-1">
               {fileTree.map((item, index) => (
                 <FileSystemNode 
                   key={index} item={item} projectRoot={projectRoot} activeFile={activeFile} setActiveFile={setActiveFile} 

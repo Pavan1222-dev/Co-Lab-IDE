@@ -87,9 +87,9 @@
   box-shadow: 0 0 40px var(--theme-primary-40);
 }
 
-/* Assistive HUD */
+/* 🔴 MOVED THE ASSISTIVE HUD TO THE LEFT SIDE */
 .assistiveWrapper {
-  @apply fixed bottom-8 right-56 z-50 flex items-end gap-4;
+  @apply fixed bottom-8 left-24 md:left-32 z-50 flex items-end gap-4;
 }
 
 .assistiveMainBtn {
@@ -107,8 +107,9 @@
   @apply border-[var(--theme-primary)] text-[var(--theme-primary)] shadow-[0_0_15px_var(--theme-primary-20)];
 }
 
+/* 🔴 FLIPPED TELEMETRY PANEL DIRECTION SO IT OPENS RIGHTWARDS */
 .telemetryPanel {
-  @apply absolute bottom-16 right-0 w-64 bg-black/90 backdrop-blur-xl border border-[var(--theme-primary)]/30 rounded-2xl p-4 shadow-[0_0_30px_var(--theme-primary-20)];
+  @apply absolute bottom-16 left-0 w-64 bg-black/90 backdrop-blur-xl border border-[var(--theme-primary)]/30 rounded-2xl p-4 shadow-[0_0_30px_var(--theme-primary-20)];
 }
 
 .teleBarBg {
@@ -118,4 +119,17 @@
 .teleBarFill {
   @apply h-full transition-all duration-500;
   background: linear-gradient(to right, var(--theme-primary), var(--theme-secondary));
+}
+
+/* 🔴 NEW STYLES FOR THE 3-DOT MENU DROPDOWN */
+.cardMenuBtn {
+  @apply p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer;
+}
+
+.cardMenuDropdown {
+  @apply absolute top-12 right-6 w-40 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl py-1 z-30 flex flex-col overflow-hidden;
+}
+
+.cardMenuItem {
+  @apply flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-widest cursor-pointer transition-colors;
 }
