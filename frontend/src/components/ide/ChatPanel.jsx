@@ -3,8 +3,8 @@ import { Send, Users, User, Circle, MessageSquareText, Reply, Smile, X } from 'l
 import * as Y from 'yjs';
 import { WebrtcProvider } from 'y-webrtc';
 import { auth } from '../../services/firebase';
+import { getProviderOptions } from '../../services/webrtcConfig';
 
-const SIGNALING_SERVERS = ['wss://colab-matchmaker-v2.onrender.com'];
 const COMMON_EMOJIS = ['👍', '🚀', '🔥', '💻', '✅', '👀', '😂', '🎉', '💡', '🐛'];
 
 export default function ChatPanel({ roomHash = 'colab-global-lobby' }) {
@@ -27,7 +27,7 @@ export default function ChatPanel({ roomHash = 'colab-global-lobby' }) {
     const ydoc = new Y.Doc();
     const chatRoomName = `${roomHash}-comms-channel`;
     
-    yProvider.current = new WebrtcProvider(chatRoomName, ydoc, { signaling: SIGNALING_SERVERS });
+    yProvider.current = new WebrtcProvider(chatRoomName, ydoc, getProviderOptions());
     yChatMap.current = ydoc.getMap('messages');
 
     const localCache = localStorage.getItem(`colab_chat_${roomHash}`);

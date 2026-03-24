@@ -12,11 +12,11 @@ import { doc, getDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import 'xterm/css/xterm.css';
 import styles from './IDE.module.css';
-
+import { getProviderOptions } from '../../services/webrtcConfig';
 import ProblemsPanel from './ProblemsPanel';
 import OutputPanel from './OutputPanel'; 
 
-const SIGNALING_SERVERS = ['wss://colab-matchmaker-v2.onrender.com'];
+
 const isTauri = '__TAURI_INTERNALS__' in window || '__TAURI__' in window;
 const osSeparator = navigator.userAgent.includes('Win') ? '\\' : '/';
 
@@ -149,7 +149,7 @@ const TerminalInstance = ({ termData, isActive, initialPath, roomHash }) => {
       const termRoomName = `${safeRoom}-term-${termData.id}`;
       
       const ydoc = new Y.Doc();
-      yProvider.current = new WebrtcProvider(termRoomName, ydoc, { signaling: SIGNALING_SERVERS });
+    yProvider.current = new WebrtcProvider(termRoomName, ydoc, getProviderOptions());
       yCommands.current = ydoc.getArray('commands');
       yState.current = ydoc.getMap('state');
 
@@ -587,7 +587,7 @@ export default function BottomPanel({ setTerminalOpen, initialPath, roomHash, pr
     }).catch((err)=>{ console.debug("Host ID fetch err:", err); });
 
     const ydoc = new Y.Doc();
-    managerProvider.current = new WebrtcProvider(`${roomHash}-terminal-manager`, ydoc, { signaling: SIGNALING_SERVERS });
+    managerProvider.current = new WebrtcProvider(${roomHash}-terminal-manager, ydoc, getProviderOptions());
     ySharedTerms.current = ydoc.getMap('shared_terminals');
 
     ySharedTerms.current.observe((event) => {

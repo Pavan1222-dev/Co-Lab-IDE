@@ -8,8 +8,8 @@ import { auth } from '../../services/firebase';
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import toast from 'react-hot-toast'; 
 import styles from './IDE.module.css';
+import { getProviderOptions } from '../../services/webrtcConfig';
 
-const SIGNALING_SERVERS = ['wss://colab-matchmaker-v2.onrender.com'];
 const CURSOR_COLORS = ['#f472b6', '#c084fc', '#06b6d4', '#00ff41', '#fbbf24', '#f97316'];
 
 const getLanguage = (fileName) => {
@@ -104,7 +104,8 @@ export default function EditorCanvas({ activeFile, roomHash, isAutoSave, unsaved
     const ydoc = new Y.Doc();
     const ytext = ydoc.getText(activeFile.relativePath || activeFile.name);
 
-    const provider = new WebrtcProvider(documentRoomName, ydoc, { signaling: SIGNALING_SERVERS });
+    const provider = new WebrtcProvider(documentRoomName, ydoc, getProviderOptions());
+    
 
     const userName = auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'Local Developer';
     const userColor = CURSOR_COLORS[Math.floor(Math.random() * CURSOR_COLORS.length)];

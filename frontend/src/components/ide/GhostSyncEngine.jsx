@@ -5,8 +5,8 @@ import { readTextFile, writeTextFile, mkdir, exists } from '@tauri-apps/plugin-f
 import { dirname, join } from '@tauri-apps/api/path';
 import { auth } from '../../services/firebase';
 import toast from 'react-hot-toast';
+import { getProviderOptions } from '../../services/webrtcConfig';
 
-const SIGNALING_SERVERS = ['wss://colab-matchmaker-v2.onrender.com'];
 const isTauri = '__TAURI_INTERNALS__' in window || '__TAURI__' in window;
 
 export default function GhostSyncEngine({ roomHash, isHost, projectRoot, activeFile }) {
@@ -21,7 +21,7 @@ export default function GhostSyncEngine({ roomHash, isHost, projectRoot, activeF
     const transferRoomName = `${roomHash}-ghost-transfer`;
     const ydoc = new Y.Doc();
     
-    yProvider.current = new WebrtcProvider(transferRoomName, ydoc, { signaling: SIGNALING_SERVERS });
+    yProvider.current = new WebrtcProvider(transferRoomName, ydoc, getProviderOptions());
     yFileChannel.current = ydoc.getArray('file_events');
 
     yFileChannel.current.observe(async (event) => {
