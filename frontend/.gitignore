@@ -6,11 +6,14 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-
+.vscode
 node_modules
 dist
 dist-ssr
 *.local
+*.repomix
+*.vscode
+.repomix
 
 # Editor directories and files
 .vscode/*
@@ -23,7 +26,7 @@ dist-ssr
 *.sln
 *.sw?
 *.git
-
+.git 
 node_modules/
 dist/
 .env

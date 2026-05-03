@@ -14,7 +14,11 @@ import { auth } from './services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
 function App() {
-  const [phase, setPhase] = useState('loading'); 
+  // 1. FAST-TRACK DESKTOP RELAYS: Check URL before the component even renders
+  const isDesktopRelay = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('desktop') === 'true';
+
+  // 2. Initialize state dynamically based on the URL flag to avoid cascading renders
+  const [phase, setPhase] = useState(isDesktopRelay ? 'auth' : 'loading'); 
   const [authMode, setAuthMode] = useState('login'); 
   
   // THE WORKSPACE ROUTING STATES
@@ -23,6 +27,9 @@ function App() {
   const [activePath, setActivePath] = useState(null);
 
   useEffect(() => {
+    // Skip the standard Firebase listener if we are fast-tracking a desktop relay
+    if (isDesktopRelay) return;
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setPhase('dashboard');
@@ -32,7 +39,7 @@ function App() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [isDesktopRelay]);
 
   const navigateToAuth = (mode) => {
     setAuthMode(mode);
@@ -68,8 +75,10 @@ function App() {
         
         {phase === 'dashboard' && (
           <Dashboard 
-            onLogout={() => setPhase('landing')} 
-            // CAPTURE ALL 3 VARIABLES FROM WORKSPACE TAB
+            onLogout={() => {
+               auth.signOut();
+               setPhase('landing');
+            }} 
             onOpenIde={(hash, isHost, localPath) => {
               setActiveHash(hash); 
               setIsWorkspaceHost(isHost);
@@ -82,8 +91,8 @@ function App() {
         {phase === 'ide' && (
           <IDEShell 
             roomHash={activeHash} 
-            isHost={isWorkspaceHost} // PASS ROLE TO IDE
-            initialPath={activePath} // PASS SYNC PATH TO IDE
+            isHost={isWorkspaceHost} 
+            initialPath={activePath} 
             onExit={() => setPhase('dashboard')} 
           />
         )}

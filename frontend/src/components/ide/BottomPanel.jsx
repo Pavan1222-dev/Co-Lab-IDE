@@ -587,7 +587,7 @@ export default function BottomPanel({ setTerminalOpen, initialPath, roomHash, pr
     }).catch((err)=>{ console.debug("Host ID fetch err:", err); });
 
     const ydoc = new Y.Doc();
-    managerProvider.current = new WebrtcProvider(${roomHash}-terminal-manager, ydoc, getProviderOptions());
+    managerProvider.current = new WebrtcProvider(`${roomHash}-terminal-manager`, ydoc, getProviderOptions());
     ySharedTerms.current = ydoc.getMap('shared_terminals');
 
     ySharedTerms.current.observe((event) => {

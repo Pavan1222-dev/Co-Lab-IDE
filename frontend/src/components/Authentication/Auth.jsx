@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, ArrowLeft, Shield, Github, KeyRound, User, Calendar, ArrowRight } from 'lucide-react';
 import { auth, db } from '../../services/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { 
-  signInWithPopup, 
+  signInWithPopup,        // 🔴 FIXED: Imported for Vercel Web login
+  signInWithCredential,   // 🔴 FIXED: Imported for Deep Link token login
   GoogleAuthProvider, 
   GithubAuthProvider, 
   createUserWithEmailAndPassword, 
@@ -13,6 +14,11 @@ import {
   sendPasswordResetEmail
 } from 'firebase/auth';
 import toast from 'react-hot-toast';
+
+const isTauri = '__TAURI_INTERNALS__' in window || '__TAURI__' in window;
+
+// 🔴 CHANGE THIS TO YOUR ACTUAL VERCEL DEPLOYMENT URL LATER
+const VERCEL_URL = "https://your-colab-project.vercel.app"; 
 
 export default function Auth({ initialMode, onBack, onSuccess }) {
   const [isLogin, setIsLogin] = useState(initialMode === 'login');
@@ -29,28 +35,109 @@ export default function Auth({ initialMode, onBack, onSuccess }) {
   const [username, setUsername] = useState('');
   const [dob, setDob] = useState('');
 
-  const handleOAuth = async (Provider) => {
+  // 1. DEEP LINK LISTENER
+  useEffect(() => {
+    if (!isTauri) return;
+
+    let unlisten;
+    const setupDeepLink = async () => {
+      try {
+        const { onOpenUrl } = await import('@tauri-apps/plugin-deep-link');
+        unlisten = await onOpenUrl((urls) => {
+          const url = new URL(urls[0]);
+          if (url.protocol === 'colab:') {
+            setIsProcessing(true);
+            toast.loading("Authenticating from browser...", { id: 'dl' });
+            const token = url.searchParams.get('token');
+            const provider = url.searchParams.get('provider');
+
+            // Authenticate using the token passed from Vercel
+            const credential = provider === 'google' 
+              ? GoogleAuthProvider.credential(token) 
+              : GithubAuthProvider.credential(token);
+
+            signInWithCredential(auth, credential)
+              .then(async (result) => {
+                const userRef = doc(db, 'users', result.user.uid);
+                await setDoc(userRef, {
+                  uid: result.user.uid,
+                  email: result.user.email,
+                  username: result.user.displayName || `User#${Math.floor(Math.random() * 10000)}`,
+                  photoURL: result.user.photoURL || '',
+                  lastLogin: Date.now()
+                }, { merge: true });
+
+                toast.success("Desktop Authentication Successful!", { id: 'dl' });
+                onSuccess();
+              })
+              .catch((err) => {
+                toast.error("Deep Link Auth Failed: " + err.message, { id: 'dl' });
+                setIsProcessing(false);
+              });
+          }
+        });
+      } catch (err) {
+        console.error("Deep link setup failed", err);
+      }
+    };
+    setupDeepLink();
+
+    return () => { if (unlisten) unlisten(); };
+  }, [onSuccess]);
+
+  // 2. SMART OAUTH HANDLER
+  const handleOAuth = async (Provider, providerName) => {
     setIsProcessing(true);
+
+    // IF DESKTOP: Open the user's default web browser to Vercel
+    if (isTauri) {
+      try {
+        const { open } = await import('@tauri-apps/plugin-shell');
+        toast.loading("Opening secure browser window...", { duration: 3000 });
+        await open(`${VERCEL_URL}/?desktop=true&mode=login`);
+        // The app will now wait for the deep link listener to fire
+      } catch (err) {
+        console.error(err); // 🔴 FIXED: Log the error so it's not unused
+        toast.error("Failed to open browser.");
+        setIsProcessing(false);
+      }
+      return;
+    }
+
+    // IF VERCEL WEB: Do the actual popup login
     try {
       const result = await signInWithPopup(auth, new Provider());
-      const userRef = doc(db, 'users', result.user.uid);
-      await setDoc(userRef, {
-        uid: result.user.uid,
-        email: result.user.email,
-        username: result.user.displayName || `User#${Math.floor(Math.random() * 10000)}`,
-        photoURL: result.user.photoURL || '',
-        lastLogin: Date.now()
-      }, { merge: true });
+      
+      // Check if we were launched by the Desktop App
+      const urlParams = new URLSearchParams(window.location.search);
+      const isDesktopRelay = urlParams.get('desktop') === 'true';
 
-      toast.success("Authentication Successful!");
-      onSuccess(); 
+      if (isDesktopRelay) {
+        // We are the middleman! Get the token and redirect to the desktop app.
+        const credential = Provider.credentialFromResult(result);
+        const token = credential.idToken || credential.accessToken;
+        window.location.href = `colab://auth?token=${token}&provider=${providerName}`;
+        toast.success("Redirecting back to Co-Lab IDE...");
+      } else {
+        // Normal web login
+        const userRef = doc(db, 'users', result.user.uid);
+        await setDoc(userRef, {
+          uid: result.user.uid,
+          email: result.user.email,
+          username: result.user.displayName || `User#${Math.floor(Math.random() * 10000)}`,
+          photoURL: result.user.photoURL || '',
+          lastLogin: Date.now()
+        }, { merge: true });
+
+        toast.success("Authentication Successful!");
+        onSuccess(); 
+      }
     } catch (err) {
       if (err.code === 'auth/account-exists-with-different-credential') {
         toast.error("Email already linked to another provider.");
       } else if (err.code !== 'auth/popup-closed-by-user') {
         toast.error(err.message.replace('Firebase: ', ''));
       }
-    } finally {
       setIsProcessing(false);
     }
   };
@@ -158,7 +245,6 @@ export default function Auth({ initialMode, onBack, onSuccess }) {
   const handleFinalizeProfile = async (e) => {
     e.preventDefault();
     
-    // 🔴 ENFORCED MANDATORY PROFILE FIELDS
     if (!username.trim()) return toast.error("Network Designation (Username) is required.");
     if (!dob) return toast.error("Date of Origin is required.");
 
@@ -209,10 +295,10 @@ export default function Auth({ initialMode, onBack, onSuccess }) {
         {isLogin ? (
           <>
             <div className="flex flex-col gap-3">
-              <button onClick={() => handleOAuth(GoogleAuthProvider)} disabled={isProcessing} className="w-full py-3 px-4 bg-white hover:bg-zinc-200 text-black font-black uppercase text-xs tracking-widest rounded-lg flex items-center justify-center gap-3 transition-colors">
+              <button onClick={() => handleOAuth(GoogleAuthProvider, 'google')} disabled={isProcessing} className="w-full py-3 px-4 bg-white hover:bg-zinc-200 text-black font-black uppercase text-xs tracking-widest rounded-lg flex items-center justify-center gap-3 transition-colors">
                 Continue with Google
               </button>
-              <button onClick={() => handleOAuth(GithubAuthProvider)} disabled={isProcessing} className="w-full py-3 px-4 bg-[#24292e] hover:bg-[#2f363d] text-white font-black uppercase text-xs tracking-widest rounded-lg flex items-center justify-center gap-3 transition-colors">
+              <button onClick={() => handleOAuth(GithubAuthProvider, 'github')} disabled={isProcessing} className="w-full py-3 px-4 bg-[#24292e] hover:bg-[#2f363d] text-white font-black uppercase text-xs tracking-widest rounded-lg flex items-center justify-center gap-3 transition-colors">
                 <Github size={16} /> Continue with GitHub
               </button>
             </div>
@@ -306,8 +392,6 @@ export default function Auth({ initialMode, onBack, onSuccess }) {
 
             {step === 4 && (
               <motion.form key="step4" initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -50, opacity: 0 }} onSubmit={handleFinalizeProfile} className="flex flex-col gap-4">
-                
-                {/* 🔴 ENFORCED REQUIREMENT FOR USERNAME AND DOB */}
                 <div className="relative">
                   <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
                   <input 
