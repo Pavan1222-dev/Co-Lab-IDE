@@ -18,7 +18,8 @@ import toast from 'react-hot-toast';
 const isTauri = '__TAURI_INTERNALS__' in window || '__TAURI__' in window;
 
 // 🔴 CHANGE THIS TO YOUR ACTUAL VERCEL DEPLOYMENT URL LATER
-const VERCEL_URL = "https://your-colab-project.vercel.app"; 
+// Example:
+const VERCEL_URL = "https://co-lab-ide-git-pa1-infocolabide-8124s-projects.vercel.app/";   // Make sure there is NO slash at the very end
 
 export default function Auth({ initialMode, onBack, onSuccess }) {
   const [isLogin, setIsLogin] = useState(initialMode === 'login');
