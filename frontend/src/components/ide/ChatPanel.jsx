@@ -4,6 +4,7 @@ import * as Y from 'yjs';
 import { WebrtcProvider } from 'y-webrtc';
 import { auth } from '../../services/firebase';
 import { getProviderOptions } from '../../services/webrtcConfig';
+import { Lock } from 'lucide-react';
 
 const COMMON_EMOJIS = ['👍', '🚀', '🔥', '💻', '✅', '👀', '😂', '🎉', '💡', '🐛'];
 

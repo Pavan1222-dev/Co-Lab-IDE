@@ -102,9 +102,7 @@ export default function EditorCanvas({
 
   const myUid = auth.currentUser?.uid || 'local-user';
   const myName = auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'Peer';
-  
-  
-    const myAvatar = localStorage.getItem(`colab_avatar_${myUid}`) || auth.currentUser?.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${myName}`;
+  const myAvatar = localStorage.getItem(`colab_avatar_${myUid}`) || auth.currentUser?.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${myName}`;
 
   const saveTimer = useRef(null);
   const isAutoSaveRef = useRef(isAutoSave);
@@ -167,8 +165,6 @@ export default function EditorCanvas({
     window.addEventListener('global-jump-to-line', handleJump);
     return () => window.removeEventListener('global-jump-to-line', handleJump);
   }, [editorInstance, targetFile]);
-
-  // 🔴 NOTE: The problematic setEditorInstance useEffect was safely removed from here.
 
   useEffect(() => {
     if (!editorInstance || !targetFile?.name) return;
@@ -284,7 +280,6 @@ export default function EditorCanvas({
 
     return () => {
       isMounted = false;
-      // 🔴 FIXED: Error variables added to catch blocks to satisfy linters
       try { binding.destroy(); } catch (err) { console.debug("Monaco Binding cleanup:", err); }
       try { provider.disconnect(); provider.destroy(); } catch (err) { console.debug("Yjs Provider cleanup:", err); }
       
@@ -299,14 +294,13 @@ export default function EditorCanvas({
       try { ydoc.destroy(); } catch (err) { console.debug("Yjs Doc cleanup:", err); }
       clearTimeout(saveTimer.current);
     };
-  // 🔴 FIXED: activeFile.type added to dependencies
   }, [roomHash, targetFile?.name, targetFile?.path, targetFile?.relativePath, editorInstance, saveToDisk, setUnsavedFiles, myUid, myName, myAvatar, activeFile.type]); 
 
   useEffect(() => {
     if (!editorInstance || activeFile.type === 'diff') return;
-    const isLockedByOther = fileLock && fileLock.uid !== myUid;
+    const isLockedByOther = fileLock && fileLock.uid !== myUid && !isWorkspaceHost;
     editorInstance.updateOptions({ readOnly: isLockedByOther });
-  }, [fileLock, editorInstance, myUid, activeFile.type]);
+  }, [fileLock, editorInstance, myUid, activeFile.type, isWorkspaceHost]);
 
   useEffect(() => {
     if (!editorInstance || !monacoRef.current || activeFile.type === 'diff') return;
@@ -386,6 +380,7 @@ export default function EditorCanvas({
       }
     });
 
+    // 🔴 NEW HIERARCHY & ENTER KEY LOGIC
     editor.onKeyDown((e) => {
       if ([monaco.KeyCode.UpArrow, monaco.KeyCode.DownArrow, monaco.KeyCode.LeftArrow, monaco.KeyCode.RightArrow, monaco.KeyCode.PageUp, monaco.KeyCode.PageDown].includes(e.keyCode)) return;
 
@@ -394,19 +389,34 @@ export default function EditorCanvas({
       let blockerName = '';
 
       const currentFileLock = yLocksRef.current?.get('fileLock');
-      if (currentFileLock && currentFileLock.uid !== myUid && !isWorkspaceHost) {
+      const iAmHost = isWorkspaceHost;
+      const iOwnFile = currentFileLock && currentFileLock.uid === myUid;
+
+      // 1. File Lock Check (Host and Owner are immune)
+      if (currentFileLock && !iOwnFile && !iAmHost) {
           isBlocked = true;
           blockerName = currentFileLock.name;
       }
 
-      if (!isBlocked && yLineLocksRef.current) {
-          for (let i = selection.startLineNumber; i <= selection.endLineNumber; i++) {
-            const lock = yLineLocksRef.current.get(i.toString());
-            if (lock && lock.uid !== myUid) {
-              isBlocked = true;
-              blockerName = lock.name;
-              break;
-            }
+      // 2. Line Lock Check (Host and File Owner bypass this completely)
+      if (!isBlocked && yLineLocksRef.current && !iOwnFile && !iAmHost) {
+          
+          // If pressing enter, only block if the exact current line is locked
+          if (e.keyCode === monaco.KeyCode.Enter) {
+              const lock = yLineLocksRef.current.get(selection.startLineNumber.toString());
+              if (lock && lock.uid !== myUid) {
+                  isBlocked = true;
+                  blockerName = lock.name;
+              }
+          } else {
+              for (let i = selection.startLineNumber; i <= selection.endLineNumber; i++) {
+                const lock = yLineLocksRef.current.get(i.toString());
+                if (lock && lock.uid !== myUid) {
+                  isBlocked = true;
+                  blockerName = lock.name;
+                  break;
+                }
+              }
           }
       }
 
@@ -437,8 +447,10 @@ export default function EditorCanvas({
     saveToDisk(true); 
   };
 
+  // 🔴 UPDATED FILE LOCK: CLEARS LINE LOCKS ON ENGAGE
   const toggleFileLock = () => {
     if (!yLocksRef.current) return;
+    
     if (fileLock) {
       if (fileLock.uid === myUid || isWorkspaceHost) {
         yLocksRef.current.set('fileLock', null);
@@ -446,7 +458,15 @@ export default function EditorCanvas({
       }
     } else {
       yLocksRef.current.set('fileLock', { uid: myUid, name: myName });
-      toast.success("File locked. Only you can edit.");
+      
+      // Wipe out all existing line locks so the file owner has total control
+      if (yLineLocksRef.current) {
+         const keysToDelete = [];
+         yLineLocksRef.current.forEach((val, key) => keysToDelete.push(key));
+         keysToDelete.forEach(k => yLineLocksRef.current.delete(k));
+      }
+      
+      toast.success("File locked. All previous line locks cleared.");
     }
   };
 
