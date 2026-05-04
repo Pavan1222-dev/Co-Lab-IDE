@@ -8,28 +8,18 @@ import IDEShell from './components/ide/IDEShell';
 import { ThemeProvider } from './contexts/ThemeContext';
 import styles from './App.module.css';
 import { Toaster } from 'react-hot-toast';
-
-// FIREBASE RADAR IMPORTS
 import { auth } from './services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
 function App() {
-  // 1. FAST-TRACK DESKTOP RELAYS: Check URL before the component even renders
-  const isDesktopRelay = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('desktop') === 'true';
-
-  // 2. Initialize state dynamically based on the URL flag to avoid cascading renders
-  const [phase, setPhase] = useState(isDesktopRelay ? 'auth' : 'loading'); 
+  const [phase, setPhase] = useState('loading'); 
   const [authMode, setAuthMode] = useState('login'); 
   
-  // THE WORKSPACE ROUTING STATES
   const [activeHash, setActiveHash] = useState(null);
   const [isWorkspaceHost, setIsWorkspaceHost] = useState(false);
   const [activePath, setActivePath] = useState(null);
 
   useEffect(() => {
-    // Skip the standard Firebase listener if we are fast-tracking a desktop relay
-    if (isDesktopRelay) return;
-
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setPhase('dashboard');
@@ -37,9 +27,8 @@ function App() {
         setPhase((prev) => prev === 'dashboard' ? 'landing' : 'intro');
       }
     });
-
     return () => unsubscribe();
-  }, [isDesktopRelay]);
+  }, []);
 
   const navigateToAuth = (mode) => {
     setAuthMode(mode);

@@ -1,16 +1,15 @@
 import React, { useState } from 'react';
+import { auth } from '../../services/firebase'; // 🔴 IMPORT FIREBASE AUTH
 import { 
   Files, Search, GitBranch, Users, Settings, 
   UserCircle, LogOut, Cloud, Key, Check, ChevronRight 
 } from 'lucide-react';
 import styles from './IDE.module.css';
 
-export default function ActivityBar({ closeMenusTrigger }) {
-  const [activeTab, setActiveTab] = useState('files');
+export default function ActivityBar({ closeMenusTrigger, activeTab, setActiveTab }) {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   
-  // FIX: React 18+ Pattern: Derive state during render instead of useEffect
   const [prevTrigger, setPrevTrigger] = useState(closeMenusTrigger);
   if (closeMenusTrigger !== prevTrigger) {
     setPrevTrigger(closeMenusTrigger);
@@ -30,6 +29,10 @@ export default function ActivityBar({ closeMenusTrigger }) {
     setAccountMenuOpen(false);
   };
 
+  // 🔴 GET THE USER'S AVATAR URL
+  const myUid = auth.currentUser?.uid || 'local-user';
+  const myName = auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'Peer';
+ const myAvatar = localStorage.getItem(`colab_avatar_${myUid}`) || auth.currentUser?.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${myName}`;
   return (
     <div className={styles.activityBar} onClick={(e) => e.stopPropagation()}>
       
@@ -68,11 +71,14 @@ export default function ActivityBar({ closeMenusTrigger }) {
 
       {/* --- BOTTOM ICONS (Settings & Account) --- */}
       <div className="mt-auto flex flex-col gap-4 items-center">
-        <button className={styles.activityBtn} onClick={toggleAccountMenu} title="Accounts">
-          <div className={styles.avatarBtn}>P</div>
+        
+        {/* 🔴 INJECT THE PROFILE PICTURE HERE */}
+        <button className={`${styles.activityBtn} overflow-hidden rounded-full w-8 h-8 p-0`} onClick={toggleAccountMenu} title="Accounts">
+          <img src={myAvatar} alt="Profile" className="w-full h-full object-cover" />
         </button>
+
         <button className={styles.activityBtn} onClick={toggleSettingsMenu} title="Manage">
-          <Settings size={24} className={settingsMenuOpen ? "text-(--theme-primary)" : ""} />
+          <Settings size={24} className={settingsMenuOpen ? "text-[#c084fc]" : ""} />
         </button>
       </div>
 
@@ -80,11 +86,11 @@ export default function ActivityBar({ closeMenusTrigger }) {
       {accountMenuOpen && (
         <div className={`${styles.contextMenu} ${styles.contextMenuBottomLeft}`}>
           <div className={styles.contextMenuItem}>
-            <span className="flex items-center gap-2"><UserCircle size={16}/> Pavan1222-dev (GitHub)</span>
+            <span className="flex items-center gap-2"><UserCircle size={16}/> {myName} (GitHub)</span>
           </div>
           <div className={styles.contextMenuSeparator} />
           <div className={styles.contextMenuItem}>
-            <span className="flex items-center gap-2"><Check size={14} className="text-(--theme-primary)"/> Settings Sync is On</span>
+            <span className="flex items-center gap-2"><Check size={14} className="text-[#c084fc]"/> Settings Sync is On</span>
           </div>
           <div className={styles.contextMenuItem}>
             <span className="flex items-center gap-2"><Cloud size={16}/> Turn on Cloud Changes...</span>
@@ -104,17 +110,17 @@ export default function ActivityBar({ closeMenusTrigger }) {
       {settingsMenuOpen && (
         <div className={`${styles.contextMenu} ${styles.contextMenuBottomLeft}`}>
           <div className={styles.contextMenuItem}>
-            <span>Command Palette...</span> <span className="text-(--text-muted) text-xs">Ctrl+Shift+P</span>
+            <span>Command Palette...</span> <span className="text-zinc-500 text-xs">Ctrl+Shift+P</span>
           </div>
           <div className={styles.contextMenuSeparator} />
           <div className={styles.contextMenuItem}>
-            <span>Settings</span> <span className="text-(--text-muted) text-xs">Ctrl+,</span>
+            <span>Settings</span> <span className="text-zinc-500 text-xs">Ctrl+,</span>
           </div>
           <div className={styles.contextMenuItem}>
-            <span>Extensions</span> <span className="text-(--text-muted) text-xs">Ctrl+Shift+X</span>
+            <span>Extensions</span> <span className="text-zinc-500 text-xs">Ctrl+Shift+X</span>
           </div>
           <div className={styles.contextMenuItem}>
-            <span>Keyboard Shortcuts</span> <span className="text-(--text-muted) text-xs">Ctrl+K Ctrl+S</span>
+            <span>Keyboard Shortcuts</span> <span className="text-zinc-500 text-xs">Ctrl+K Ctrl+S</span>
           </div>
           <div className={styles.contextMenuSeparator} />
           <div className={styles.contextMenuItem}>
@@ -122,7 +128,7 @@ export default function ActivityBar({ closeMenusTrigger }) {
           </div>
           <div className={styles.contextMenuSeparator} />
           <div className={styles.contextMenuItem}>
-            <span className="flex items-center gap-2"><Check size={14} className="text-(--theme-primary)"/> Settings Sync is On</span>
+            <span className="flex items-center gap-2"><Check size={14} className="text-[#c084fc]"/> Settings Sync is On</span>
           </div>
         </div>
       )}

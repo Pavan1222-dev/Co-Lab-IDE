@@ -26,22 +26,70 @@ export default function SettingsDashboard() {
           dob: data.dob || '',
           photoURL: data.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.username || 'default'}`
         });
+        
+        // Ensure local storage has the latest avatar from the database if they clear their cache
+        if (data.photoURL) {
+            localStorage.setItem(`colab_avatar_${auth.currentUser.uid}`, data.photoURL);
+        }
       }
     };
     fetchUserData();
   }, []);
 
-  const handleImageUpload = (e) => {
+  const handleImageUpload = async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      if (file.size > 1048576) { 
-        return toast.error("Image too large! Please select an image under 1MB.");
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfile(prev => ({ ...prev, photoURL: reader.result }));
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) { 
+      return toast.error("Image too large! Please select an image under 5MB.");
+    }
+
+    const toastId = toast.loading("Compressing and optimizing avatar...");
+
+    try {
+      const compressedBase64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        
+        reader.onload = (event) => {
+          const img = new Image();
+          img.src = event.target.result;
+          
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX_SIZE = 150; 
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+              if (width > MAX_SIZE) {
+                height *= MAX_SIZE / width;
+                width = MAX_SIZE;
+              }
+            } else {
+              if (height > MAX_SIZE) {
+                width *= MAX_SIZE / height;
+                height = MAX_SIZE;
+              }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            resolve(canvas.toDataURL('image/jpeg', 0.6));
+          };
+        };
+      });
+
+      setProfile(prev => ({ ...prev, photoURL: compressedBase64 }));
+      toast.success("Image optimized!", { id: toastId });
+
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to process image.", { id: toastId });
     }
   };
 
@@ -52,13 +100,15 @@ export default function SettingsDashboard() {
     
     try {
       const finalAvatar = profile.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.username || 'default'}`;
-      const isBase64 = finalAvatar.startsWith('data:image');
 
-      const authUpdateData = { displayName: profile.username };
-      if (!isBase64) authUpdateData.photoURL = finalAvatar; 
-      
-      await updateProfile(auth.currentUser, authUpdateData);
+      // 🔴 1. UPDATE AUTH (Skip photoURL if it is a massive Base64 string)
+      const authUpdates = { displayName: profile.username };
+      if (!finalAvatar.startsWith('data:image')) {
+          authUpdates.photoURL = finalAvatar;
+      }
+      await updateProfile(auth.currentUser, authUpdates);
 
+      // 🔴 2. UPDATE FIRESTORE (Firestore can easily hold massive Base64 strings)
       const userRef = doc(db, 'users', auth.currentUser.uid);
       await setDoc(userRef, {
         username: profile.username,
@@ -66,7 +116,13 @@ export default function SettingsDashboard() {
         photoURL: finalAvatar 
       }, { merge: true });
 
+      // 🔴 3. CACHE IN BROWSER (So EditorCanvas and ActivityBar can load it instantly)
+      localStorage.setItem(`colab_avatar_${auth.currentUser.uid}`, finalAvatar);
+
       toast.success("Profile Synchronized across network.");
+      
+      setTimeout(() => window.location.reload(), 1500);
+      
     } catch (error) {
       console.error(error);
       toast.error("Failed to update profile.");
@@ -84,7 +140,6 @@ export default function SettingsDashboard() {
     { id: 'orange', hex: '#f97316', sec: '#fb923c', shadow: 'rgba(249,115,22,0.5)' },
   ];
 
-  // 🔴 FIXED: Restored the missing color change function
   const handleColorChange = (hex, sec) => {
     setActiveColor(hex);
     setSecondaryColor(sec);
